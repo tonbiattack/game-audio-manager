@@ -46,6 +46,31 @@ Windows 内部にはアプリ別出力設定に使われる COM コンポーネ�
 
 外部実行ファイルの配置・実行が組織のセキュリティ方針などで許可されない場合に限り、PowerShell 単体の未文書 API 方式を検討する。その場合は Windows 更新後に動作確認する運用が必要になる。
 
+## スタートアップで自動適用する
+
+通常は、ゲームを起動した状態で一度 `set-shiren-output.ps1` を実行すれば、Windows がアプリ別の出力先設定を保持する。そのため、毎回スタートアップで実行する必要はない。
+
+Bluetooth 機器の再接続などによって設定が戻る場合は、ログイン時に起動してシレン6の開始を待つスクリプトを使用する。単に `set-shiren-output.ps1` をスタートアップで一度だけ実行すると、ゲームが未起動のためプロセス未検出エラーになる。
+
+リポジトリ直下に `start-shiren-output.ps1` を作成し、以下を保存する。
+
+```powershell
+while (-not (Get-Process -Name ShirenTheWanderer6 -ErrorAction SilentlyContinue)) {
+    Start-Sleep -Seconds 5
+}
+
+& "C:\apps\toggle-shiren-mute\set-shiren-output.ps1" `
+    -Device "Realtek(R) Audio"
+```
+
+次に `Win + R` で `shell:startup` を実行してスタートアップフォルダーを開き、以下をリンク先にしたショートカットを置く。
+
+```text
+powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\apps\toggle-shiren-mute\start-shiren-output.ps1"
+```
+
+これにより、ログイン後はバックグラウンドでシレン6の起動を待ち、起動を検出したときに一度だけ出力先を設定する。
+
 ## 検証環境
 
 - Windows 11（build 26200）
