@@ -40,16 +40,22 @@ ShirenTheWanderer6   1234  ...                C:\...\ShirenTheWanderer6.exe
 .\set-shiren-output.ps1 -List
 ```
 
-シレン6だけをBluetoothイヤホン以外へ割り当てる例:
+`指定値` 列の文字列を `-Device` に指定します。たとえばシレン6だけを Bluetooth イヤホン以外へ割り当てる場合:
 
 ```powershell
-.\set-shiren-output.ps1 -Device "Speakers"
+.\set-shiren-output.ps1 -Device "Realtek(R) Audio"
 ```
 
 Windowsの既定出力へ戻す場合:
 
 ```powershell
 .\set-shiren-output.ps1 -Reset
+```
+
+SoundVolumeCommandLine の全項目を CSV 形式で確認する場合:
+
+```powershell
+.\set-shiren-output.ps1 -RawList
 ```
 
 ## プロセス名を明示的に変更する場合

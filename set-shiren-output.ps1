@@ -3,7 +3,8 @@ param(
     [string]$ProcessName = "ShirenTheWanderer6",
     [string]$SvclPath = "$PSScriptRoot\svcl.exe",
     [switch]$Reset,
-    [switch]$List
+    [switch]$List,
+    [switch]$RawList
 )
 
 Set-StrictMode -Version Latest
@@ -26,9 +27,36 @@ if (-not (Test-Path -LiteralPath $SvclPath)) {
     throw "svcl.exe was not found: $SvclPath. Download SoundVolumeCommandLine from NirSoft and place svcl.exe next to this script, or specify -SvclPath."
 }
 
-if ($List) {
+if ($RawList) {
     & $SvclPath /Stdout /scomma ""
     exit $LASTEXITCODE
+}
+
+if ($List) {
+    $devices = @(
+        & $SvclPath /Stdout /scomma "" |
+            ConvertFrom-Csv |
+            Where-Object {
+                $_.Type -eq "Device" -and
+                $_.Direction -eq "Render" -and
+                $_.'Device State' -eq "Active"
+            } |
+            Sort-Object 'Device Name' |
+            Select-Object @{ Name = "指定値"; Expression = { $_.'Device Name' } }, @{ Name = "表示名"; Expression = { $_.Name } }, @{ Name = "既定"; Expression = { $_.Default } }
+    )
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to list audio devices. svcl.exe exit code: $LASTEXITCODE"
+    }
+
+    if ($devices.Count -eq 0) {
+        Write-Warning "No active render devices were found. Use -RawList to inspect all SoundVolumeCommandLine entries."
+        exit 0
+    }
+
+    Write-Output "Use the value in '指定値' with -Device:"
+    $devices | Format-Table -AutoSize | Out-String -Width 4096 | Write-Output
+    exit 0
 }
 
 $process = Resolve-ShirenProcess -ExplicitProcessName $ProcessName
