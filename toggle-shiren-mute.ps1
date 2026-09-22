@@ -1,4 +1,4 @@
-$ProcessName = ""
+$ProcessName = "ShirenTheWanderer6"
 
 $code = @'
 using System;
