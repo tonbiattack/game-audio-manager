@@ -1,6 +1,6 @@
 param(
     [string]$Device,
-    [string]$ProcessName = "",
+    [string]$ProcessName = "ShirenTheWanderer6",
     [string]$SvclPath = "$PSScriptRoot\svcl.exe",
     [switch]$Reset,
     [switch]$List
@@ -12,14 +12,14 @@ $ErrorActionPreference = "Stop"
 function Resolve-ShirenProcess {
     param([string]$ExplicitProcessName)
 
-    if ($ExplicitProcessName) {
-        $name = [System.IO.Path]::GetFileNameWithoutExtension($ExplicitProcessName)
-        return Get-Process -Name $name -ErrorAction Stop | Select-Object -First 1
+    $name = [System.IO.Path]::GetFileNameWithoutExtension($ExplicitProcessName)
+    $processes = @(Get-Process -Name $name -ErrorAction SilentlyContinue)
+
+    if ($processes.Count -eq 0) {
+        throw "Shiren 6 process was not found. Expected process: $name (ShirenTheWanderer6.exe). Run .\detect-shiren-process.ps1 to diagnose."
     }
 
-    return Get-Process | Where-Object {
-        $_.MainWindowTitle -match "Shiren|シレン"
-    } | Select-Object -First 1
+    return $processes | Select-Object -First 1
 }
 
 if (-not (Test-Path -LiteralPath $SvclPath)) {
@@ -32,12 +32,11 @@ if ($List) {
 }
 
 $process = Resolve-ShirenProcess -ExplicitProcessName $ProcessName
-
-if (-not $process) {
-    throw "Shiren process was not found. Start the game first, or specify -ProcessName."
-}
-
 $exeName = "$($process.ProcessName).exe"
+
+Write-Host "Detected Shiren 6:"
+Write-Host "  Process: $exeName"
+Write-Host "  PID:     $($process.Id)"
 
 if ($Reset) {
     Write-Host "Resetting Shiren output device to Windows default..."
