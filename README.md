@@ -58,6 +58,24 @@ SoundVolumeCommandLine の全項目を CSV 形式で確認する場合:
 .\set-shiren-output.ps1 -RawList
 ```
 
+### 出力先を自動で再設定する
+
+固定したい出力先の `指定値` を使って監視を起動します。
+
+```powershell
+.\watch-shiren-output.ps1 -Device "4- HD Audio Driver for Display Audio"
+```
+
+監視中は、シレンの起動・再起動と指定デバイスの再接続を検出すると出力先を設定します。デバイスが未接続の間や設定に失敗した場合は、5秒ごとに再試行します。監視は `Ctrl+C` で終了できます。監視の開始時にもゲームとデバイスが利用可能なら設定します。デバイス名は `-List` で確認し、同じ指定値の有効なデバイスが複数ある場合は、一意に識別できる名前を選んでください。
+
+ログイン時に自動開始するには、`Win + R` で `shell:startup` を開き、次をリンク先にしたショートカットを作成します。パスとデバイス名は自身の環境に合わせて変更してください。
+
+```text
+powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\apps\toggle-shiren-mute\watch-shiren-output.ps1" -Device "4- HD Audio Driver for Display Audio"
+```
+
+非表示で起動した監視を停止するには、タスク マネージャーの「詳細」タブで、コマンドラインに `watch-shiren-output.ps1` を含む PowerShell プロセスを終了します。自動起動をやめるには、作成したショートカットを削除します。非表示でのエラーは画面に表示されないため、設定を確認するときは上記のコマンドを通常の PowerShell で実行してください。
+
 ## プロセス名を明示的に変更する場合
 
 通常は変更不要です。
