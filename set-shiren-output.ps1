@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Device,
     [string]$ProcessName = "ShirenTheWanderer6",
     [string]$SvclPath = "$PSScriptRoot\svcl.exe",
