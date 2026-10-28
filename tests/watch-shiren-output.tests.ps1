@@ -7,6 +7,13 @@ function Assert-Equal($actual, $expected, $message) {
     if ($actual -ne $expected) { throw "$message Expected $expected, got $actual" }
 }
 
+$firstMutex = Enter-ShirenWatchMutex -Name 'toggle-shiren-mute-test'
+if ($null -eq $firstMutex) { throw 'The first monitor must acquire its mutex.' }
+$secondMutex = Enter-ShirenWatchMutex -Name 'toggle-shiren-mute-test'
+if ($null -ne $secondMutex) { throw 'A second monitor must not acquire the same mutex.' }
+$firstMutex.ReleaseMutex()
+$firstMutex.Dispose()
+
 $state = New-ShirenWatchState
 $attempts = 0
 $apply = { $script:attempts++; return $true }

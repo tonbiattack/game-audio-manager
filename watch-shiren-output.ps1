@@ -13,11 +13,17 @@ if (-not (Test-Path -LiteralPath $SvclPath -PathType Leaf)) {
     throw "svcl.exe was not found: $SvclPath"
 }
 $name = [System.IO.Path]::GetFileNameWithoutExtension($ProcessName)
+$mutex = Enter-ShirenWatchMutex -Name "toggle-shiren-mute-$name-$Device"
+if ($null -eq $mutex) {
+    Write-Host "A monitor for $name and '$Device' is already running."
+    exit 0
+}
 $state = New-ShirenWatchState
 Write-Host "Monitoring $name and output device '$Device'. Press Ctrl+C to stop."
 
-while ($true) {
-    try {
+try {
+    while ($true) {
+        try {
         $process = Get-Process -Name $name -ErrorAction SilentlyContinue | Select-Object -First 1
         $identity = if ($null -ne $process) { '{0}:{1}' -f $process.Id, $process.StartTime.ToUniversalTime().Ticks } else { $null }
         $csv = @(& $SvclPath /Stdout /scomma '')
@@ -37,10 +43,14 @@ while ($true) {
             }
         }
         Update-ShirenWatchState $state $identity ($devices.Count -eq 1) $apply
-    } catch {
-        # An incomplete observation must not be treated as a successful application.
-        $state.Applied = $false
-        Write-Warning "Monitoring failed; will retry: $_"
+        } catch {
+            # An incomplete observation must not be treated as a successful application.
+            $state.Applied = $false
+            Write-Warning "Monitoring failed; will retry: $_"
+        }
+        Start-Sleep -Seconds $IntervalSeconds
     }
-    Start-Sleep -Seconds $IntervalSeconds
+} finally {
+    $mutex.ReleaseMutex()
+    $mutex.Dispose()
 }
