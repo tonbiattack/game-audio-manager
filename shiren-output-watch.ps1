@@ -1,5 +1,22 @@
 function New-ShirenWatchState {
-    return @{ Process = $null; DeviceAvailable = $false; Applied = $false }
+    return @{ Process = $null; DeviceAvailable = $false; Destination = $null; Applied = $false }
+}
+
+function Get-PreferredActiveDevice {
+    param([string[]]$Candidates, [string[]]$ActiveDevices)
+
+    foreach ($candidate in $Candidates) {
+        if ($ActiveDevices -contains $candidate) {
+            return $candidate
+        }
+    }
+    return $null
+}
+
+function Split-ShirenOutputDevices {
+    param([string[]]$Values)
+
+    return @($Values | ForEach-Object { $_ -split '\|' } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 }
 
 function Enter-ShirenWatchMutex {
@@ -15,14 +32,16 @@ function Enter-ShirenWatchMutex {
 }
 
 function Update-ShirenWatchState {
-    param($State, $ProcessIdentity, [bool]$DeviceAvailable, [scriptblock]$Apply)
+    param($State, $ProcessIdentity, [string]$Destination, [scriptblock]$Apply)
 
-    if ($State.Process -ne $ProcessIdentity -or -not $DeviceAvailable -or -not $State.DeviceAvailable) {
+    $deviceAvailable = -not [string]::IsNullOrEmpty($Destination)
+    if ($State.Process -ne $ProcessIdentity -or -not $deviceAvailable -or -not $State.DeviceAvailable -or $State.Destination -ne $Destination) {
         $State.Applied = $false
     }
     $State.Process = $ProcessIdentity
-    $State.DeviceAvailable = $DeviceAvailable
-    if ($null -ne $ProcessIdentity -and $DeviceAvailable -and -not $State.Applied) {
-        $State.Applied = [bool](& $Apply)
+    $State.DeviceAvailable = $deviceAvailable
+    $State.Destination = $Destination
+    if ($null -ne $ProcessIdentity -and $deviceAvailable -and -not $State.Applied) {
+        $State.Applied = [bool](& $Apply $Destination)
     }
 }

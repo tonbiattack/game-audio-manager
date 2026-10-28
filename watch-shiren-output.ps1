@@ -1,5 +1,5 @@
 param(
-    [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$Device,
+    [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string[]]$Device,
     [string]$ProcessName = 'ShirenTheWanderer6',
     [string]$SvclPath = "$PSScriptRoot\svcl.exe",
     [ValidateRange(1, 3600)][int]$IntervalSeconds = 5
@@ -9,17 +9,22 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\shiren-output-watch.ps1"
 
+$Device = Split-ShirenOutputDevices -Values $Device
+if ($Device.Count -eq 0) {
+    throw 'Specify at least one output device.'
+}
+
 if (-not (Test-Path -LiteralPath $SvclPath -PathType Leaf)) {
     throw "svcl.exe was not found: $SvclPath"
 }
 $name = [System.IO.Path]::GetFileNameWithoutExtension($ProcessName)
-$mutex = Enter-ShirenWatchMutex -Name "toggle-shiren-mute-$name-$Device"
+$mutex = Enter-ShirenWatchMutex -Name "toggle-shiren-mute-$name-$($Device -join '|')"
 if ($null -eq $mutex) {
     Write-Host "A monitor for $name and '$Device' is already running."
     exit 0
 }
 $state = New-ShirenWatchState
-Write-Host "Monitoring $name and output device '$Device'. Press Ctrl+C to stop."
+Write-Host "Monitoring $name and output devices '$($Device -join "', '")'. Press Ctrl+C to stop."
 
 try {
     while ($true) {
@@ -28,21 +33,22 @@ try {
         $identity = if ($null -ne $process) { '{0}:{1}' -f $process.Id, $process.StartTime.ToUniversalTime().Ticks } else { $null }
         $csv = @(& $SvclPath /Stdout /scomma '')
         if ($LASTEXITCODE -ne 0) { throw "Device enumeration failed (exit code $LASTEXITCODE)." }
-        $devices = @($csv | ConvertFrom-Csv | Where-Object {
+        $activeDeviceNames = @($csv | ConvertFrom-Csv | Where-Object {
             $_.Type -eq 'Device' -and $_.Direction -eq 'Render' -and
-            $_.'Device State' -eq 'Active' -and $_.'Device Name' -eq $Device
-        })
-        if ($devices.Count -gt 1) { throw "Multiple active devices have the name '$Device'; choose a unique device name." }
+            $_.'Device State' -eq 'Active'
+        } | ForEach-Object { $_.'Device Name' })
+        $destination = Get-PreferredActiveDevice -Candidates $Device -ActiveDevices $activeDeviceNames
         $apply = {
+            param($SelectedDevice)
             try {
-                & "$PSScriptRoot\set-shiren-output.ps1" -Device $Device -ProcessName $name -SvclPath $SvclPath | Out-Host
+                & "$PSScriptRoot\set-shiren-output.ps1" -Device $SelectedDevice -ProcessName $name -SvclPath $SvclPath | Out-Host
                 return $true
             } catch {
                 Write-Warning "Could not apply output; will retry: $_"
                 return $false
             }
         }
-        Update-ShirenWatchState $state $identity ($devices.Count -eq 1) $apply
+        Update-ShirenWatchState $state $identity $destination $apply
         } catch {
             # An incomplete observation must not be treated as a successful application.
             $state.Applied = $false
