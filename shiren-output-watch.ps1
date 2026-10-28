@@ -2,6 +2,18 @@ function New-ShirenWatchState {
     return @{ Process = $null; DeviceAvailable = $false; Applied = $false }
 }
 
+function Enter-ShirenWatchMutex {
+    param([Parameter(Mandatory = $true)][string]$Name)
+
+    $createdNew = $false
+    $mutex = [System.Threading.Mutex]::new($false, "Local\$Name", [ref]$createdNew)
+    if (-not $createdNew -or -not $mutex.WaitOne(0)) {
+        $mutex.Dispose()
+        return $null
+    }
+    return $mutex
+}
+
 function Update-ShirenWatchState {
     param($State, $ProcessIdentity, [bool]$DeviceAvailable, [scriptblock]$Apply)
 
