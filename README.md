@@ -66,6 +66,12 @@ SoundVolumeCommandLine の全項目を CSV 形式で確認する場合:
 .\watch-shiren-output.ps1 -Device "4- HD Audio Driver for Display Audio"
 ```
 
+複数の候補を指定する場合は、`|` で区切ります。左側ほど優先され、接続されている最初の候補が選ばれます。
+
+```powershell
+.\watch-shiren-output.ps1 -Device "4- HD Audio Driver for Display Audio|4- USB Audio Device|5- USB Audio Device"
+```
+
 監視中は、シレンの起動・再起動と指定デバイスの再接続を検出すると出力先を設定します。デバイスが未接続の間や設定に失敗した場合は、5秒ごとに再試行します。監視は `Ctrl+C` で終了できます。監視の開始時にもゲームとデバイスが利用可能なら設定します。デバイス名は `-List` で確認し、同じ指定値の有効なデバイスが複数ある場合は、一意に識別できる名前を選んでください。
 
 ログイン時に自動開始するには、`Win + R` で `shell:startup` を開き、次をリンク先にしたショートカットを作成します。パスとデバイス名は自身の環境に合わせて変更してください。
