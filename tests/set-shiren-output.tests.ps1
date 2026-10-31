@@ -24,7 +24,7 @@ function Test-ListShowsPlaybackDevices {
     }
 
     Assert-Contains -Text $text -Expected '指定値' -Message '-List must label the value passed to -Device.'
-    Assert-Contains -Text $text -Expected 'Speaker' -Message '-List must show an available render device.'
+    Assert-Contains -Text $text -Expected 'with -Device' -Message '-List must explain how to use the displayed device values.'
 }
 
 function Test-RawListRetainsSvclCsv {

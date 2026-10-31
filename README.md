@@ -1,6 +1,33 @@
-# toggle-shiren-mute
+# game-audio-manager
 
-Steam版『不思議のダンジョン 風来のシレン6 とぐろ島探検録』の音声を、Windows上で制御するPowerShellスクリプト集です。
+Windows 上でゲームごとの音声を制御する PowerShell スクリプト集です。任意のゲームのプロセス名を指定して検出、ミュート切替、出力先変更を行えます。
+
+## 任意のゲームを操作する
+
+ゲームの実行ファイル名（`.exe` は付けても省いても構いません）を `-ProcessName` に指定します。
+
+```powershell
+# プロセスを検出する
+.\detect-game-process.ps1 -ProcessName "ExampleGame"
+
+# 対象ゲームの音声セッションをミュート／解除する
+.\toggle-game-mute.ps1 -ProcessName "ExampleGame"
+
+# 使用できる出力先を確認する（ゲームが未起動でも実行可能）
+.\set-game-output.ps1 -List
+
+# 出力先を指定する
+.\set-game-output.ps1 -ProcessName "ExampleGame" -Device "Realtek(R) Audio"
+
+# Windows の既定出力へ戻す
+.\set-game-output.ps1 -ProcessName "ExampleGame" -Reset
+```
+
+プロセスが見つからない場合、エラーには指定したプロセス名が表示されます。`detect-game-process.ps1` で実行中のプロセス名を確認してください。
+
+## 既存のシレン6用コマンドとの互換性
+
+既存の `detect-shiren-process.ps1`、`toggle-shiren-mute.ps1`、`set-shiren-output.ps1` は引き続き利用できます。引数を指定しない場合は従来どおり `ShirenTheWanderer6` を対象にし、必要なら `-ProcessName` で上書きできます。
 
 ## シレン6の識別
 
@@ -98,6 +125,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\
 `set-shiren-output.ps1` は NirSoft SoundVolumeCommandLine を使用します。このリポジトリには `svcl.exe` 本体を含めません。
 
 まず `detect-shiren-process.ps1` でシレン6を正しく識別できることを確認してから、ミュートや出力先変更を試してください。
+
+## 手動確認手順
+
+実機のオーディオセッションと出力先は自動テストでは検証できないため、変更後は次を確認してください。
+
+1. 対象ゲームを起動し、`detect-game-process.ps1 -ProcessName "実際のプロセス名"` で PID を確認する。
+2. `toggle-game-mute.ps1 -ProcessName "実際のプロセス名"` を2回実行し、ミュートと解除が交互に切り替わることを確認する。
+3. `set-game-output.ps1 -List` で有効なデバイス名を確認し、`-Device` で出力先を変更する。
+4. `set-game-output.ps1 -ProcessName "実際のプロセス名" -Reset` で Windows の既定出力に戻す。
+5. 存在しない名前を指定し、エラーにそのプロセス名が表示されることを確認する。
 
 ## 動作環境
 
