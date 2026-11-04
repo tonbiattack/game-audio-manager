@@ -38,6 +38,17 @@ Steam版 Slay the Spire 2 のプロセス名は `SlayTheSpire2` です。次の�
 
 出力先を選ぶ前に `set-game-output.ps1 -List` を実行し、表示された `指定値` を `-Device` に指定してください。
 
+### Balatro（Steam版）
+
+Steam版 Balatro のプロセス名は `Balatro` です。次のコマンドで、Balatro だけを検出・ミュート・出力先変更できます。
+
+```powershell
+.\detect-game-process.ps1 -ProcessName "Balatro"
+.\toggle-game-mute.ps1 -ProcessName "Balatro"
+.\set-game-output.ps1 -ProcessName "Balatro" -Device "使用するデバイス名"
+.\set-game-output.ps1 -ProcessName "Balatro" -Reset
+```
+
 ## 既存のシレン6用コマンドとの互換性
 
 既存の `detect-shiren-process.ps1`、`toggle-shiren-mute.ps1`、`set-shiren-output.ps1` は引き続き利用できます。引数を指定しない場合は従来どおり `ShirenTheWanderer6` を対象にし、必要なら `-ProcessName` で上書きできます。
