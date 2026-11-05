@@ -45,6 +45,9 @@ function Get-GameConfiguration {
         if ($game.enabled -isnot [bool]) {
             throw "Game '$($game.name)' has an invalid enabled value; use true or false."
         }
+        if ($game.outputDevices -isnot [System.Array]) {
+            throw "Game '$($game.name)' must define outputDevices as an array."
+        }
         $devices = @($game.outputDevices)
         if ($devices.Count -eq 0) {
             throw "Game '$($game.name)' must define at least one outputDevices value."

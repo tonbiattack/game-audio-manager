@@ -39,15 +39,17 @@ Assert-Equal (Get-PreferredConfiguredDevice -Candidates @('A', 'B', 'C') -Active
 
 $duplicateName = New-TestConfigFile '{"games":[{"name":"Same","processName":"One","outputDevices":["Device"],"enabled":true},{"name":"Same","processName":"Two","outputDevices":["Device"],"enabled":true}]}'
 $emptyCandidates = New-TestConfigFile '{"games":[{"name":"Game","processName":"Game","outputDevices":[],"enabled":true}]}'
+$stringCandidates = New-TestConfigFile '{"games":[{"name":"Game","processName":"Game","outputDevices":"Device","enabled":true}]}'
 $invalidEnabled = New-TestConfigFile '{"games":[{"name":"Game","processName":"Game","outputDevices":["Device"],"enabled":"true"}]}'
 
 try {
     Assert-Throws { Get-GameConfiguration -Path $duplicateName } 'duplicate game name' 'Duplicate names must be rejected.'
     Assert-Throws { Get-GameConfiguration -Path $emptyCandidates } 'outputDevices' 'Empty device candidates must be rejected.'
+    Assert-Throws { Get-GameConfiguration -Path $stringCandidates } 'array' 'A single device string must be rejected.'
     Assert-Throws { Get-GameConfiguration -Path $invalidEnabled } 'enabled' 'A non-boolean enabled value must be rejected.'
 }
 finally {
-    Remove-Item -LiteralPath $duplicateName,$emptyCandidates,$invalidEnabled -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $duplicateName,$emptyCandidates,$stringCandidates,$invalidEnabled -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host 'PASS: game-audio-config tests'
