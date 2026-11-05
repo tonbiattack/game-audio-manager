@@ -38,4 +38,26 @@ if ($text -match 'Shiren|シレン') {
     throw "The generic missing-process error must be game-neutral. Actual: $text"
 }
 
+$configPath = Join-Path ([System.IO.Path]::GetTempPath()) ("game-output-{0}.json" -f [guid]::NewGuid())
+[System.IO.File]::WriteAllText($configPath, '{"games":[{"name":"Disabled","processName":"DisabledProcess","outputDevices":["Device"],"enabled":false}]}', [System.Text.Encoding]::UTF8)
+try {
+    foreach ($case in @(
+        @{ Name = 'Unknown'; Expected = 'Configured game was not found' },
+        @{ Name = 'Disabled'; Expected = 'Configured game is disabled' }
+    )) {
+        try {
+            & $genericScript -Game $case.Name -ConfigPath $configPath -Device 'Device' | Out-Null
+            throw "-Game '$($case.Name)' must fail."
+        }
+        catch {
+            if ($_.Exception.Message -notmatch [regex]::Escape($case.Expected)) {
+                throw "-Game '$($case.Name)' must resolve through configuration. Actual: $($_.Exception.Message)"
+            }
+        }
+    }
+}
+finally {
+    Remove-Item -LiteralPath $configPath -Force -ErrorAction SilentlyContinue
+}
+
 Write-Host 'PASS: set-game-output tests'

@@ -1,13 +1,17 @@
 param(
     [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string[]]$Device,
     [string]$ProcessName = 'ShirenTheWanderer6',
-    [string]$SvclPath = "$PSScriptRoot\svcl.exe",
+    [string]$SvclPath,
     [ValidateRange(1, 3600)][int]$IntervalSeconds = 5
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\shiren-output-watch.ps1"
+
+if ([string]::IsNullOrWhiteSpace($SvclPath)) {
+    $SvclPath = Join-Path $PSScriptRoot 'svcl.exe'
+}
 
 $Device = Split-ShirenOutputDevices -Values $Device
 if ($Device.Count -eq 0) {
