@@ -18,11 +18,12 @@ function Assert-True {
 
 $repositoryPath = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $startupDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("game-audio-startup-{0}" -f [guid]::NewGuid())
+$windowsPowerShellPath = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
 
 try {
-    $definition = Get-GameAudioStartupShortcutDefinition -RepositoryPath $repositoryPath -StartupDirectory $startupDirectory
+    $definition = Get-GameAudioStartupShortcutDefinition -RepositoryPath $repositoryPath -StartupDirectory $startupDirectory -PowerShellExecutablePath $windowsPowerShellPath
     Assert-Equal $definition.ShortcutPath (Join-Path $startupDirectory 'Game Audio Manager.lnk') 'Shortcut name must be stable.'
-    Assert-Equal $definition.TargetPath (Join-Path $PSHOME 'powershell.exe') 'Shortcut must launch Windows PowerShell.'
+    Assert-Equal $definition.TargetPath $windowsPowerShellPath 'Shortcut must launch Windows PowerShell even when registration is started from PowerShell 7.'
     Assert-Equal $definition.WorkingDirectory $repositoryPath 'Shortcut must use the repository as its working directory.'
     Assert-True ($definition.Arguments -match [regex]::Escape((Join-Path $repositoryPath 'game-audio-manager.ps1'))) 'Shortcut must launch the GUI script by absolute path.'
 

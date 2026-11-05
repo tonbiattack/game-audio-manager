@@ -3,7 +3,8 @@ Set-StrictMode -Version Latest
 function Get-GameAudioStartupShortcutDefinition {
     param(
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$RepositoryPath,
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$StartupDirectory
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$StartupDirectory,
+        [string]$PowerShellExecutablePath = (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe')
     )
 
     $resolvedRepositoryPath = (Resolve-Path -LiteralPath $RepositoryPath -ErrorAction Stop).Path
@@ -11,10 +12,13 @@ function Get-GameAudioStartupShortcutDefinition {
     if (-not (Test-Path -LiteralPath $guiScriptPath -PathType Leaf)) {
         throw "Game Audio Manager GUI script was not found: $guiScriptPath"
     }
+    if (-not (Test-Path -LiteralPath $PowerShellExecutablePath -PathType Leaf)) {
+        throw "Windows PowerShell executable was not found: $PowerShellExecutablePath"
+    }
 
     return [PSCustomObject]@{
         ShortcutPath = Join-Path $StartupDirectory 'Game Audio Manager.lnk'
-        TargetPath = Join-Path $PSHOME 'powershell.exe'
+        TargetPath = $PowerShellExecutablePath
         Arguments = ('-NoProfile -ExecutionPolicy Bypass -File "{0}"' -f $guiScriptPath)
         WorkingDirectory = $resolvedRepositoryPath
     }
@@ -23,10 +27,11 @@ function Get-GameAudioStartupShortcutDefinition {
 function Set-GameAudioStartupShortcut {
     param(
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$RepositoryPath,
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$StartupDirectory
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$StartupDirectory,
+        [string]$PowerShellExecutablePath = (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe')
     )
 
-    $definition = Get-GameAudioStartupShortcutDefinition -RepositoryPath $RepositoryPath -StartupDirectory $StartupDirectory
+    $definition = Get-GameAudioStartupShortcutDefinition -RepositoryPath $RepositoryPath -StartupDirectory $StartupDirectory -PowerShellExecutablePath $PowerShellExecutablePath
     $null = New-Item -ItemType Directory -Path $StartupDirectory -Force
     $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($definition.ShortcutPath)
     $shortcut.TargetPath = $definition.TargetPath
