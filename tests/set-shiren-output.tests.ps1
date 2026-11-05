@@ -15,6 +15,7 @@ function Assert-Contains {
 }
 
 function Test-ListShowsPlaybackDevices {
+    $valueLabel = -join @(0x6307, 0x5b9a, 0x5024 | ForEach-Object { [char]$_ })
     $output = @(& $scriptPath -List 2>&1)
     $exitCode = $LASTEXITCODE
     $text = $output -join [Environment]::NewLine
@@ -23,7 +24,7 @@ function Test-ListShowsPlaybackDevices {
         throw "-List failed with exit code ${exitCode}: $text"
     }
 
-    Assert-Contains -Text $text -Expected '指定値' -Message '-List must label the value passed to -Device.'
+    Assert-Contains -Text $text -Expected $valueLabel -Message '-List must label the value passed to -Device.'
     Assert-Contains -Text $text -Expected 'with -Device' -Message '-List must explain how to use the displayed device values.'
 }
 

@@ -2,6 +2,37 @@
 
 Windows 上でゲームごとの音声を制御する PowerShell スクリプト集です。任意のゲームのプロセス名を指定して検出、ミュート切替、出力先変更を行えます。
 
+## Windows GUI を使う
+
+ゲームと出力先を選ぶだけで切り替える場合は、`game-audio-manager.ps1` を起動します。GUI は `config/games.json` の有効なゲームを表示し、接続中のデバイスを選べます。
+
+初回だけ、サンプルを個人用設定としてコピーします。`games.json` は端末ごとのデバイス名を含むため Git には追加されません。
+
+```powershell
+Copy-Item .\config\games.example.json .\config\games.json
+.\game-audio-manager.ps1
+```
+
+`優先デバイスを適用` は、各ゲームの `outputDevices` に書かれた順で、現在接続中の最初のデバイスを選びます。`選択したデバイスを適用` では、接続中の任意の出力先を指定できます。ゲームが起動していない場合は適用できません。
+
+### ゲームを追加・変更する
+
+`config/games.json` の `games` 配列へ次の形式で項目を追加します。`outputDevices` は左側ほど優先され、`enabled: false` のゲームは GUI に表示されません。
+
+```json
+{
+  "name": "ゲーム名",
+  "processName": "GameExecutableName",
+  "outputDevices": [
+    "第1候補のデバイス名",
+    "第2候補のデバイス名"
+  ],
+  "enabled": true
+}
+```
+
+プロセス名はゲームを起動して `detect-game-process.ps1 -ProcessName "候補名"` で確認します。デバイス名は `set-game-output.ps1 -List` の `指定値` をそのまま使ってください。
+
 ## 任意のゲームを操作する
 
 ゲームの実行ファイル名（`.exe` は付けても省いても構いません）を `-ProcessName` に指定します。

@@ -93,19 +93,19 @@ $status.Size = New-Object System.Drawing.Size(410, 85)
 $status.AutoEllipsis = $true
 $form.Controls.Add($status)
 
-$guiState = @()
-$activeDevices = @()
+$script:guiState = @()
+$script:activeDevices = @()
 function Update-GameAudioGui {
     try {
         $games = @(Get-GameConfiguration -Path $ConfigPath)
-        $activeDevices = @(Get-ActiveRenderDeviceNames)
+        $script:activeDevices = @(Get-ActiveRenderDeviceNames)
         $runningNames = @(Get-Process -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ProcessName)
-        $guiState = @(Get-GameAudioGuiState -Games $games -ActiveDevices $activeDevices -RunningProcessNames $runningNames)
+        $script:guiState = @(Get-GameAudioGuiState -Games $games -ActiveDevices $script:activeDevices -RunningProcessNames $runningNames)
         $gameSelector.Items.Clear()
-        foreach ($game in $guiState) { [void]$gameSelector.Items.Add($game) }
+        foreach ($game in $script:guiState) { [void]$gameSelector.Items.Add($game) }
         $gameSelector.DisplayMember = 'Name'
         $deviceSelector.Items.Clear()
-        foreach ($device in $activeDevices) { [void]$deviceSelector.Items.Add($device) }
+        foreach ($device in $script:activeDevices) { [void]$deviceSelector.Items.Add($device) }
         if ($gameSelector.Items.Count -gt 0) { $gameSelector.SelectedIndex = 0 }
         $status.Text = '更新しました。'
     }
@@ -132,10 +132,10 @@ $gameSelector.add_SelectedIndexChanged({ Update-SelectedGameStatus })
 $deviceSelector.add_SelectedIndexChanged({ Update-SelectedGameStatus })
 $refreshButton.add_Click({ Update-GameAudioGui; Update-SelectedGameStatus })
 $preferredButton.add_Click({
-    try { $request = New-GameAudioApplyRequest -Game $gameSelector.SelectedItem -ActiveDevices $activeDevices -UsePreferred; $status.Text = Invoke-GameOutputChange -GameName $request.GameName -Device $request.Device } catch { $status.Text = "適用に失敗しました: $($_.Exception.Message)" }
+    try { $request = New-GameAudioApplyRequest -Game $gameSelector.SelectedItem -ActiveDevices $script:activeDevices -UsePreferred; $status.Text = Invoke-GameOutputChange -GameName $request.GameName -Device $request.Device } catch { $status.Text = "適用に失敗しました: $($_.Exception.Message)" }
 })
 $selectedButton.add_Click({
-    try { $request = New-GameAudioApplyRequest -Game $gameSelector.SelectedItem -ActiveDevices $activeDevices -SelectedDevice ([string]$deviceSelector.SelectedItem); $status.Text = Invoke-GameOutputChange -GameName $request.GameName -Device $request.Device } catch { $status.Text = "適用に失敗しました: $($_.Exception.Message)" }
+    try { $request = New-GameAudioApplyRequest -Game $gameSelector.SelectedItem -ActiveDevices $script:activeDevices -SelectedDevice ([string]$deviceSelector.SelectedItem); $status.Text = Invoke-GameOutputChange -GameName $request.GameName -Device $request.Device } catch { $status.Text = "適用に失敗しました: $($_.Exception.Message)" }
 })
 $resetButton.add_Click({
     try { $status.Text = Invoke-GameOutputChange -GameName $gameSelector.SelectedItem.Name -Reset } catch { $status.Text = "リセットに失敗しました: $($_.Exception.Message)" }
