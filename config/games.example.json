@@ -1,0 +1,22 @@
+{
+  "games": [
+    {
+      "name": "Shiren 6",
+      "processName": "ShirenTheWanderer6",
+      "outputDevices": ["Example primary device", "Example fallback device"],
+      "enabled": true
+    },
+    {
+      "name": "Slay the Spire 2",
+      "processName": "SlayTheSpire2",
+      "outputDevices": ["Example primary device", "Example fallback device"],
+      "enabled": true
+    },
+    {
+      "name": "Balatro",
+      "processName": "Balatro",
+      "outputDevices": ["Example primary device", "Example fallback device"],
+      "enabled": true
+    }
+  ]
+}
