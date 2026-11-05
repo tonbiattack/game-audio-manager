@@ -1,7 +1,9 @@
 param(
     [string]$Device,
     [string]$ProcessName,
-    [string]$SvclPath = "$PSScriptRoot\svcl.exe",
+    [string]$Game,
+    [string]$ConfigPath,
+    [string]$SvclPath,
     [switch]$Reset,
     [switch]$List,
     [switch]$RawList
@@ -10,6 +12,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib\GameAudio.Common.ps1"
+
+if ([string]::IsNullOrWhiteSpace($SvclPath)) {
+    $SvclPath = Join-Path $PSScriptRoot 'svcl.exe'
+}
 
 if (-not (Test-Path -LiteralPath $SvclPath)) {
     throw "svcl.exe was not found: $SvclPath. Download SoundVolumeCommandLine from NirSoft and place svcl.exe next to this script, or specify -SvclPath."
@@ -50,8 +56,21 @@ if ($List) {
     exit 0
 }
 
+if (-not [string]::IsNullOrWhiteSpace($Game) -and -not [string]::IsNullOrWhiteSpace($ProcessName)) {
+    throw 'Specify either -Game or -ProcessName, not both.'
+}
+
+if (-not [string]::IsNullOrWhiteSpace($Game)) {
+    if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
+        $ConfigPath = Join-Path $PSScriptRoot 'config\games.json'
+    }
+    . "$PSScriptRoot\lib\GameAudio.Config.ps1"
+    $configuredGame = Resolve-ConfiguredGame -Games @(Get-GameConfiguration -Path $ConfigPath) -GameName $Game
+    $ProcessName = $configuredGame.ProcessName
+}
+
 if ([string]::IsNullOrWhiteSpace($ProcessName)) {
-    throw 'Specify the game process with -ProcessName.'
+    throw 'Specify the game with -Game or -ProcessName.'
 }
 
 $process = Resolve-GameProcess -ProcessName $ProcessName
