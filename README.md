@@ -13,6 +13,18 @@ Copy-Item .\config\games.example.json .\config\games.json
 .\game-audio-manager.ps1
 ```
 
+ログオン時にも GUI を開くには、現在のユーザーのスタートアップへショートカットを登録します。管理者権限は不要です。
+
+```powershell
+.\Install-GameAudioManagerStartup.ps1
+```
+
+登録を解除する場合は次を実行します。このコマンドは Game Audio Manager のショートカットだけを削除します。
+
+```powershell
+.\Install-GameAudioManagerStartup.ps1 -Remove
+```
+
 `優先デバイスを適用` は、各ゲームの `outputDevices` に書かれた順で、現在接続中の最初のデバイスを選びます。`選択したデバイスを適用` では、接続中の任意の出力先を指定できます。ゲームが起動していない場合は適用できません。
 
 ### ゲームを追加・変更する
