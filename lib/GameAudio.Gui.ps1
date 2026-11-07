@@ -27,6 +27,27 @@ function Get-GameAudioGuiState {
     }
 }
 
+function Get-DiscoveredGameAudioApplications {
+    param(
+        [Parameter(Mandatory = $true)][object[]]$Processes,
+        [Parameter(Mandatory = $true)][object[]]$ConfiguredGames
+    )
+
+    $configuredProcessNames = @($ConfiguredGames | ForEach-Object { $_.ProcessName })
+    return @($Processes |
+        Where-Object { $_.MainWindowHandle -ne 0 -and $configuredProcessNames -notcontains $_.ProcessName } |
+        Sort-Object ProcessName -Unique |
+        ForEach-Object {
+            [PSCustomObject]@{
+                Name = $_.ProcessName
+                ProcessName = $_.ProcessName
+                OutputDevices = [string[]]@()
+                IsRunning = $true
+                PreferredDevice = $null
+            }
+        })
+}
+
 function New-GameAudioApplyRequest {
     param(
         [Parameter(Mandatory = $true)]$Game,

@@ -108,19 +108,9 @@ function Update-GameAudioGui {
         if ($games.Count -gt 0) {
             $configured = @(Get-GameAudioGuiState -Games $games -ActiveDevices $script:activeDevices -RunningProcessNames $runningNames)
         }
-        $knownNames = @($configured | ForEach-Object { $_.ProcessName })
         # Show interactive applications even when they have not been added to JSON.
         # Background processes without a window can still be controlled via -ProcessName.
-        $discovered = @($processes | Where-Object { $_.MainWindowHandle -ne 0 -and $knownNames -notcontains $_.ProcessName } |
-            Sort-Object ProcessName -Unique | ForEach-Object {
-                [PSCustomObject]@{
-                    Name = $_.ProcessName
-                    ProcessName = $_.ProcessName
-                    OutputDevices = [string[]]@()
-                    IsRunning = $true
-                    PreferredDevice = $null
-                }
-            })
+        $discovered = @(Get-DiscoveredGameAudioApplications -Processes $processes -ConfiguredGames $games)
         $script:guiState = @($configured) + @($discovered)
         $gameSelector.Items.Clear()
         foreach ($game in $script:guiState) { [void]$gameSelector.Items.Add($game) }

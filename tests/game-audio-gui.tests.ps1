@@ -39,6 +39,14 @@ Assert-Equal $manual.Device 'Other' 'Manual apply must keep a selected active de
 Assert-Throws { New-GameAudioApplyRequest -Game $state[1] -ActiveDevices @('Second') -UsePreferred } 'not running'
 Assert-Throws { New-GameAudioApplyRequest -Game $state[0] -ActiveDevices @('Second') -SelectedDevice 'Missing' } 'not active'
 
+$discovered = @(Get-DiscoveredGameAudioApplications -Processes @(
+    [PSCustomObject]@{ ProcessName = 'RunningGame'; MainWindowHandle = [intptr]1 },
+    [PSCustomObject]@{ ProcessName = 'DisabledGame'; MainWindowHandle = [intptr]1 },
+    [PSCustomObject]@{ ProcessName = 'UnconfiguredApp'; MainWindowHandle = [intptr]1 },
+    [PSCustomObject]@{ ProcessName = 'BackgroundApp'; MainWindowHandle = [intptr]0 }
+) -ConfiguredGames $games)
+Assert-Equal ($discovered.ProcessName -join ',') 'UnconfiguredApp' 'Configured processes, including disabled games, must not be rediscovered.'
+
 $guiSource = Get-Content -LiteralPath $guiScript -Raw
 if ($guiSource -match '(?s)\$selectedButton\.add_Click\(\{.*?Invoke-GameOutputChange -GameName') {
     throw 'Selected-device apply must route through ProcessName, not GameName.'
