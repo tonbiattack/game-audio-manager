@@ -1,7 +1,9 @@
 $ErrorActionPreference = 'Stop'
 
 $library = Join-Path $PSScriptRoot '..\lib\GameAudio.Gui.ps1'
+$guiScript = Join-Path $PSScriptRoot '..\game-audio-manager.ps1'
 if (-not (Test-Path -LiteralPath $library)) { throw 'Game-audio GUI library is missing.' }
+if (-not (Test-Path -LiteralPath $guiScript)) { throw 'Game-audio GUI script is missing.' }
 . $library
 
 function Assert-Equal {
@@ -36,5 +38,13 @@ $manual = New-GameAudioApplyRequest -Game $state[0] -ActiveDevices @('Second', '
 Assert-Equal $manual.Device 'Other' 'Manual apply must keep a selected active device.'
 Assert-Throws { New-GameAudioApplyRequest -Game $state[1] -ActiveDevices @('Second') -UsePreferred } 'not running'
 Assert-Throws { New-GameAudioApplyRequest -Game $state[0] -ActiveDevices @('Second') -SelectedDevice 'Missing' } 'not active'
+
+$guiSource = Get-Content -LiteralPath $guiScript -Raw
+if ($guiSource -match '(?s)\$selectedButton\.add_Click\(\{.*?Invoke-GameOutputChange -GameName') {
+    throw 'Selected-device apply must route through ProcessName, not GameName.'
+}
+if ($guiSource -notmatch '(?s)\$selectedButton\.add_Click\(\{.*?Invoke-GameOutputChange -ProcessName \$request\.ProcessName') {
+    throw 'Selected-device apply must pass the request ProcessName.'
+}
 
 Write-Host 'PASS: game-audio-gui tests'
