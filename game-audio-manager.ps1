@@ -104,7 +104,10 @@ function Update-GameAudioGui {
         $script:activeDevices = @(Get-ActiveRenderDeviceNames)
         $processes = @(Get-Process -ErrorAction SilentlyContinue)
         $runningNames = @($processes | Select-Object -ExpandProperty ProcessName)
-        $configured = @(Get-GameAudioGuiState -Games $games -ActiveDevices $script:activeDevices -RunningProcessNames $runningNames)
+        $configured = @()
+        if ($games.Count -gt 0) {
+            $configured = @(Get-GameAudioGuiState -Games $games -ActiveDevices $script:activeDevices -RunningProcessNames $runningNames)
+        }
         $knownNames = @($configured | ForEach-Object { $_.ProcessName })
         # Show interactive applications even when they have not been added to JSON.
         # Background processes without a window can still be controlled via -ProcessName.
