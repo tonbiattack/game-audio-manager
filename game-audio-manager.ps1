@@ -49,7 +49,33 @@ $gameSelector = New-Object System.Windows.Forms.ComboBox
 $gameSelector.Location = New-Object System.Drawing.Point(20, 44)
 $gameSelector.Size = New-Object System.Drawing.Size(500, 24)
 $gameSelector.DropDownStyle = 'DropDownList'
+$gameSelector.DrawMode = [System.Windows.Forms.DrawMode]::OwnerDrawFixed
+$gameSelector.ItemHeight = 24
 $form.Controls.Add($gameSelector)
+
+# Keep extracted application icons in memory only while the list is displayed.
+$script:appIcons = @{}
+$gameSelector.add_DrawItem({
+    param($sender, $e)
+    if ($e.Index -lt 0) { return }
+
+    $e.DrawBackground()
+    $app = $sender.Items[$e.Index]
+    $icon = $script:appIcons[[string]$app.ProcessName]
+    if ($null -ne $icon) {
+        $e.Graphics.DrawImage($icon, $e.Bounds.X + 5, $e.Bounds.Y + 4, 16, 16)
+    }
+
+    $selected = ($e.State -band [System.Windows.Forms.DrawItemState]::Selected) -ne 0
+    $color = if ($selected) { [System.Drawing.SystemColors]::HighlightText } else { $e.ForeColor }
+    $textBounds = New-Object System.Drawing.Rectangle(($e.Bounds.X + 26), $e.Bounds.Y, ([Math]::Max(0, $e.Bounds.Width - 30)), $e.Bounds.Height)
+    [System.Windows.Forms.TextRenderer]::DrawText(
+        $e.Graphics, [string]$app.Name, $e.Font, $textBounds, $color,
+        ([System.Windows.Forms.TextFormatFlags]::VerticalCenter -bor
+         [System.Windows.Forms.TextFormatFlags]::EndEllipsis -bor
+         [System.Windows.Forms.TextFormatFlags]::NoPrefix))
+    $e.DrawFocusRectangle()
+})
 
 $deviceLabel = New-Object System.Windows.Forms.Label
 $deviceLabel.Text = '出力先'
@@ -95,6 +121,38 @@ $form.Controls.Add($status)
 
 $script:guiState = @()
 $script:activeDevices = @()
+
+function Update-AppIcons {
+    param([object[]]$Processes, [object[]]$Applications)
+
+    foreach ($bitmap in $script:appIcons.Values) {
+        if ($null -ne $bitmap) { $bitmap.Dispose() }
+    }
+    $script:appIcons = @{}
+
+    foreach ($app in $Applications) {
+        $name = [string]$app.ProcessName
+        if ($script:appIcons.ContainsKey($name)) { continue }
+
+        # Some applications do not expose an executable path (access denied,
+        # system processes, or packaged applications). Display text in that case.
+        foreach ($process in @($Processes | Where-Object { $_.ProcessName -ieq $name })) {
+            try {
+                $path = $process.Path
+                if ([string]::IsNullOrWhiteSpace($path) -or -not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+                $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
+                if ($null -eq $icon) { continue }
+                try { $script:appIcons[$name] = $icon.ToBitmap() }
+                finally { $icon.Dispose() }
+                break
+            }
+            catch {
+                # Missing or inaccessible icon: leave this app text-only.
+            }
+        }
+    }
+}
+
 function Update-GameAudioGui {
     try {
         $games = @()
@@ -113,6 +171,7 @@ function Update-GameAudioGui {
         $discovered = @(Get-DiscoveredGameAudioApplications -Processes $processes -ConfiguredGames $games)
         $script:guiState = @($configured) + @($discovered)
         $gameSelector.Items.Clear()
+        Update-AppIcons -Processes $processes -Applications $script:guiState
         foreach ($game in $script:guiState) { [void]$gameSelector.Items.Add($game) }
         $gameSelector.DisplayMember = 'Name'
         $deviceSelector.Items.Clear()
@@ -154,4 +213,10 @@ $resetButton.add_Click({
 
 Update-GameAudioGui
 Update-SelectedGameStatus
-[void]$form.ShowDialog()
+try { [void]$form.ShowDialog() }
+finally {
+    foreach ($bitmap in $script:appIcons.Values) {
+        if ($null -ne $bitmap) { $bitmap.Dispose() }
+    }
+    $form.Dispose()
+}
