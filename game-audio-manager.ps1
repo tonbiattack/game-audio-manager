@@ -22,10 +22,10 @@ function Get-ActiveRenderDeviceNames {
 }
 
 function Invoke-GameOutputChange {
-    param([string]$GameName, [string]$Device, [switch]$Reset)
+    param([string]$ProcessName, [string]$Device, [switch]$Reset)
 
     $hostPath = (Get-Process -Id $PID).Path
-    $arguments = @('-NoProfile', '-File', (Join-Path $PSScriptRoot 'set-game-output.ps1'), '-Game', $GameName, '-ConfigPath', $ConfigPath, '-SvclPath', $SvclPath)
+    $arguments = @('-NoProfile', '-File', (Join-Path $PSScriptRoot 'set-game-output.ps1'), '-ProcessName', $ProcessName, '-SvclPath', $SvclPath)
     if ($Reset) { $arguments += '-Reset' } else { $arguments += @('-Device', $Device) }
     $result = & $hostPath @arguments 2>&1
     if ($LASTEXITCODE -ne 0) { throw ($result -join [Environment]::NewLine) }
@@ -33,14 +33,14 @@ function Invoke-GameOutputChange {
 }
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'Game Audio Manager'
+$form.Text = 'Application Audio Manager'
 $form.Size = New-Object System.Drawing.Size(560, 330)
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
 
 $gameLabel = New-Object System.Windows.Forms.Label
-$gameLabel.Text = 'ゲーム'
+$gameLabel.Text = 'アプリケーション'
 $gameLabel.Location = New-Object System.Drawing.Point(20, 22)
 $gameLabel.AutoSize = $true
 $form.Controls.Add($gameLabel)
@@ -97,10 +97,21 @@ $script:guiState = @()
 $script:activeDevices = @()
 function Update-GameAudioGui {
     try {
-        $games = @(Get-GameConfiguration -Path $ConfigPath)
+        $games = @()
+        if (Test-Path -LiteralPath $ConfigPath -PathType Leaf) {
+            $games = @(Get-GameConfiguration -Path $ConfigPath)
+        }
         $script:activeDevices = @(Get-ActiveRenderDeviceNames)
-        $runningNames = @(Get-Process -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ProcessName)
-        $script:guiState = @(Get-GameAudioGuiState -Games $games -ActiveDevices $script:activeDevices -RunningProcessNames $runningNames)
+        $processes = @(Get-Process -ErrorAction SilentlyContinue)
+        $runningNames = @($processes | Select-Object -ExpandProperty ProcessName)
+        $configured = @()
+        if ($games.Count -gt 0) {
+            $configured = @(Get-GameAudioGuiState -Games $games -ActiveDevices $script:activeDevices -RunningProcessNames $runningNames)
+        }
+        # Show interactive applications even when they have not been added to JSON.
+        # Background processes without a window can still be controlled via -ProcessName.
+        $discovered = @(Get-DiscoveredGameAudioApplications -Processes $processes -ConfiguredGames $games)
+        $script:guiState = @($configured) + @($discovered)
         $gameSelector.Items.Clear()
         foreach ($game in $script:guiState) { [void]$gameSelector.Items.Add($game) }
         $gameSelector.DisplayMember = 'Name'
@@ -132,13 +143,13 @@ $gameSelector.add_SelectedIndexChanged({ Update-SelectedGameStatus })
 $deviceSelector.add_SelectedIndexChanged({ Update-SelectedGameStatus })
 $refreshButton.add_Click({ Update-GameAudioGui; Update-SelectedGameStatus })
 $preferredButton.add_Click({
-    try { $request = New-GameAudioApplyRequest -Game $gameSelector.SelectedItem -ActiveDevices $script:activeDevices -UsePreferred; $status.Text = Invoke-GameOutputChange -GameName $request.GameName -Device $request.Device } catch { $status.Text = "適用に失敗しました: $($_.Exception.Message)" }
+    try { $request = New-GameAudioApplyRequest -Game $gameSelector.SelectedItem -ActiveDevices $script:activeDevices -UsePreferred; $status.Text = Invoke-GameOutputChange -ProcessName $request.ProcessName -Device $request.Device } catch { $status.Text = "適用に失敗しました: $($_.Exception.Message)" }
 })
 $selectedButton.add_Click({
-    try { $request = New-GameAudioApplyRequest -Game $gameSelector.SelectedItem -ActiveDevices $script:activeDevices -SelectedDevice ([string]$deviceSelector.SelectedItem); $status.Text = Invoke-GameOutputChange -GameName $request.GameName -Device $request.Device } catch { $status.Text = "適用に失敗しました: $($_.Exception.Message)" }
+    try { $request = New-GameAudioApplyRequest -Game $gameSelector.SelectedItem -ActiveDevices $script:activeDevices -SelectedDevice ([string]$deviceSelector.SelectedItem); $status.Text = Invoke-GameOutputChange -ProcessName $request.ProcessName -Device $request.Device } catch { $status.Text = "適用に失敗しました: $($_.Exception.Message)" }
 })
 $resetButton.add_Click({
-    try { $status.Text = Invoke-GameOutputChange -GameName $gameSelector.SelectedItem.Name -Reset } catch { $status.Text = "リセットに失敗しました: $($_.Exception.Message)" }
+    try { $status.Text = Invoke-GameOutputChange -ProcessName $gameSelector.SelectedItem.ProcessName -Reset } catch { $status.Text = "リセットに失敗しました: $($_.Exception.Message)" }
 })
 
 Update-GameAudioGui
