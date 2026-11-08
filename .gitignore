@@ -1,2 +1,4 @@
 config/games.json
+config/settings.json
+config/watcher-status.json
 .superpowers/

@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 
 function Test-GameConfigurationText {
     param([object]$Value, [string]$Field, [string]$GameName)
@@ -66,7 +66,7 @@ function Get-GameConfiguration {
         }
     }
 
-    if ($validatedGames.Count -eq 0) { throw "Game configuration has no games: $Path" }
+    # An empty games array is a valid state; a rule can be registered later by the GUI.
     return $validatedGames
 }
 
@@ -93,4 +93,122 @@ function Get-PreferredConfiguredDevice {
         if ($ActiveDevices -contains $candidate) { return $candidate }
     }
     return $null
+}
+
+function Get-GameAudioRuleProcessName {
+    param([Parameter(Mandatory = $true)][string]$ProcessName)
+
+    return [System.IO.Path]::GetFileNameWithoutExtension($ProcessName)
+}
+
+function Publish-GameAudioRuleConfiguration {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)]$Configuration
+    )
+
+    $json = $Configuration | ConvertTo-Json -Depth 6
+    [System.IO.File]::WriteAllText($Path, $json, [System.Text.UTF8Encoding]::new($false))
+    return $Configuration
+}
+
+function Set-GameAudioRule {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$ProcessName,
+        [string]$Name,
+        [string[]]$OutputDevices,
+        [bool]$Enabled = $true
+    )
+
+    $processName = Get-GameAudioRuleProcessName -ProcessName $ProcessName
+    $config = $null
+    if (Test-Path -LiteralPath $Path -PathType Leaf) {
+        try {
+            $config = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -ErrorAction Stop
+        }
+        catch {
+            throw "Game configuration is not valid JSON: $Path. $($_.Exception.Message)"
+        }
+    }
+    if ($null -eq $config) { $config = [PSCustomObject]@{ games = @() } }
+
+    $games = @(@($config.games) | Where-Object { $null -ne $_ })
+    $selectedDevices = @()
+    if ($null -ne $OutputDevices) {
+        $selectedDevices = @($OutputDevices | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    }
+    $displayName = $processName
+    if (-not [string]::IsNullOrWhiteSpace($Name)) { $displayName = $Name }
+    $integrationBase = @()
+
+    $existingRule = $games | Where-Object {
+        (Get-GameAudioRuleProcessName -ProcessName ([string]$_.processName)) -ieq $processName
+    } | Select-Object -First 1
+
+    if ($null -eq $existingRule) {
+        if ($selectedDevices.Count -eq 0) {
+            throw "Specify at least one output device to register '$processName'."
+        }
+    }
+    else {
+        $integrationBase = @()
+        if ($null -ne $existingRule.outputDevices) {
+            $integrationBase = @($existingRule.outputDevices | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        }
+        if ([string]::IsNullOrWhiteSpace($Name)) { $displayName = [string]$existingRule.name }
+    }
+
+    $mergedDevices = @($selectedDevices) + @($integrationBase | Where-Object { $selectedDevices -notcontains $_ })
+
+    if ($null -eq $existingRule) {
+        $rule = [PSCustomObject]@{
+            name = $displayName
+            processName = $processName
+            outputDevices = [string[]]$mergedDevices
+            enabled = [bool]$Enabled
+        }
+        $config.games = @($games) + $rule
+    }
+    else {
+        $existingRule | Add-Member -MemberType NoteProperty -Name 'name' -Value $displayName -Force
+        $existingRule | Add-Member -MemberType NoteProperty -Name 'processName' -Value $processName -Force
+        $existingRule | Add-Member -MemberType NoteProperty -Name 'outputDevices' -Value ([string[]]$mergedDevices) -Force
+        $existingRule | Add-Member -MemberType NoteProperty -Name 'enabled' -Value ([bool]$Enabled) -Force
+        $rule = $existingRule
+        $config.games = @($games)
+    }
+
+    $null = Publish-GameAudioRuleConfiguration -Path $Path -Configuration $config
+    return $rule
+}
+
+function Remove-GameAudioRule {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$ProcessName
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Game configuration was not found: $Path"
+    }
+    try {
+        $config = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch {
+        throw "Game configuration is not valid JSON: $Path. $($_.Exception.Message)"
+    }
+
+    $games = @(@($config.games) | Where-Object { $null -ne $_ })
+    $processName = Get-GameAudioRuleProcessName -ProcessName $ProcessName
+    $remaining = @($games | Where-Object {
+        (Get-GameAudioRuleProcessName -ProcessName ([string]$_.processName)) -ine $processName
+    })
+    if ($remaining.Count -eq $games.Count) {
+        throw "Configured rule was not found: $processName"
+    }
+
+    $config.games = $remaining
+    $null = Publish-GameAudioRuleConfiguration -Path $Path -Configuration $config
+    return $remaining
 }
