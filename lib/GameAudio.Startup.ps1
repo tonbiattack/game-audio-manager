@@ -50,3 +50,54 @@ function Remove-GameAudioStartupShortcut {
     Remove-Item -LiteralPath $shortcutPath -Force
     return $true
 }
+
+function Get-GameAudioWatcherStartupShortcutDefinition {
+    param(
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$RepositoryPath,
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$StartupDirectory,
+        [string]$PowerShellExecutablePath = (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe')
+    )
+
+    $resolvedRepositoryPath = (Resolve-Path -LiteralPath $RepositoryPath -ErrorAction Stop).Path
+    $watcherScriptPath = Join-Path $resolvedRepositoryPath 'watch-game-output.ps1'
+    if (-not (Test-Path -LiteralPath $watcherScriptPath -PathType Leaf)) {
+        throw "Game output watcher script was not found: $watcherScriptPath"
+    }
+    if (-not (Test-Path -LiteralPath $PowerShellExecutablePath -PathType Leaf)) {
+        throw "Windows PowerShell executable was not found: $PowerShellExecutablePath"
+    }
+
+    return [PSCustomObject]@{
+        ShortcutPath = Join-Path $StartupDirectory 'Game Audio Manager Watcher.lnk'
+        TargetPath = $PowerShellExecutablePath
+        Arguments = ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}"' -f $watcherScriptPath)
+        WorkingDirectory = $resolvedRepositoryPath
+    }
+}
+
+function Set-GameAudioWatcherStartupShortcut {
+    param(
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$RepositoryPath,
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$StartupDirectory,
+        [string]$PowerShellExecutablePath = (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe')
+    )
+
+    $definition = Get-GameAudioWatcherStartupShortcutDefinition -RepositoryPath $RepositoryPath -StartupDirectory $StartupDirectory -PowerShellExecutablePath $PowerShellExecutablePath
+    $null = New-Item -ItemType Directory -Path $StartupDirectory -Force
+    $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($definition.ShortcutPath)
+    $shortcut.TargetPath = $definition.TargetPath
+    $shortcut.Arguments = $definition.Arguments
+    $shortcut.WorkingDirectory = $definition.WorkingDirectory
+    $shortcut.Description = 'Watch configured game audio outputs'
+    $shortcut.Save()
+    return $definition
+}
+
+function Remove-GameAudioWatcherStartupShortcut {
+    param([Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$StartupDirectory)
+
+    $shortcutPath = Join-Path $StartupDirectory 'Game Audio Manager Watcher.lnk'
+    if (-not (Test-Path -LiteralPath $shortcutPath -PathType Leaf)) { return $false }
+    Remove-Item -LiteralPath $shortcutPath -Force
+    return $true
+}

@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 
 function Get-GameAudioGuiState {
     param(
@@ -72,5 +72,58 @@ function New-GameAudioApplyRequest {
         GameName = $Game.Name
         ProcessName = $Game.ProcessName
         Device = $device
+    }
+}
+
+function Format-GameAudioWatchStatusText {
+    param(
+        [AllowNull()]$Status,
+        [Parameter(Mandatory = $true)][bool]$Running
+    )
+
+    if (-not $Running -or $null -eq $Status) {
+        # An absent status file means the watcher is not recording (not running or still starting).
+        return '監視: 停止中 (GUI を閉じても監視は継続します)'
+    }
+
+    $watcher = $Status.watcher
+    $lines = @('監視中: PID {0}, {1}秒間隔' -f $watcher.pid, $watcher.intervalSeconds)
+    foreach ($app in @($Status.apps)) {
+        if (-not $app.enabled) { continue }
+        if ($app.appliedDevice) {
+            $line = '{0}: {1} に適用済み' -f $app.name, $app.appliedDevice
+        }
+        elseif (-not $app.running) {
+            $line = '{0}: 未起動' -f $app.name
+        }
+        elseif (-not $app.destinationDevice) {
+            $line = '{0}: 優先デバイスが未接続' -f $app.name
+        }
+        else {
+            $line = '{0}: 適用待ち' -f $app.name
+        }
+        if ($app.error) { $line = '{0} (エラー: {1})' -f $line, $app.error }
+        $lines += $line
+    }
+    if (-not ($lines.Count -gt 1)) { $lines += '監視対象のゲームはありません。' }
+    return ($lines -join [Environment]::NewLine)
+}
+
+function ConvertTo-GameAudioRuleRequest {
+    param(
+        [Parameter(Mandatory = $true)]$Game,
+        [string]$SelectedDevice
+    )
+
+    $device = [string]$SelectedDevice
+    $configuredDevices = @(@($Game.OutputDevices))
+    if ([string]::IsNullOrWhiteSpace($device) -and $configuredDevices.Count -eq 0) {
+        throw "Select an output device to register '$($Game.Name)'."
+    }
+    return [PSCustomObject]@{
+        ProcessName = $Game.ProcessName
+        Name = [string]$Game.Name
+        Device = $device
+        HasRule = ($configuredDevices.Count -gt 0)
     }
 }
