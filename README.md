@@ -20,6 +20,10 @@
 
 Windows 上でゲームごとの音声を制御する PowerShell スクリプト集です。任意のゲームのプロセス名を指定して検出、ミュート切替、出力先変更を行えます。
 
+## ライセンスと同梱コンポーネント
+
+このリポジトリで作成した PowerShell ソースとドキュメントは [MIT License](LICENSE) です。音声出力の制御には NirSoft の SoundVolumeCommandLine を利用しています。`svcl.exe`、`svcl.chm`、`readme.txt` は同ツールの未改変の 64-bit 配布物であり、MIT License の対象外です。配布条件と著作権表記は [Third-party notices](THIRD_PARTY_NOTICES.md) を参照してください。
+
 ## Windows GUI を使う
 
 ゲームと出力先を選ぶだけで切り替える場合は、`game-audio-manager.ps1` を起動します。GUI は設定済みゲームと現在ウィンドウを持つ実行中のアプリを表示し、接続中のデバイスを選べます。
@@ -239,7 +243,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\
 
 ## 注意
 
-`set-shiren-output.ps1` は NirSoft SoundVolumeCommandLine を使用します。このリポジトリには `svcl.exe` 本体を含めません。
+`set-shiren-output.ps1` は NirSoft SoundVolumeCommandLine を使用します。このリポジトリには未改変の 64-bit 配布物（`svcl.exe`、`svcl.chm`、`readme.txt`）を同梱しています。利用・再配布時の条件は [Third-party notices](THIRD_PARTY_NOTICES.md) を確認してください。
 
 まず `detect-shiren-process.ps1` でシレン6を正しく識別できることを確認してから、ミュートや出力先変更を試してください。
 
