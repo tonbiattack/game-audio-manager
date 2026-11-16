@@ -108,6 +108,9 @@ if (-not $Device) {
     throw 'Specify the destination device with -Device. Use -List to inspect available audio devices.'
 }
 
+# svcl.exe exits 0 for an unknown device name, so validate before invoking it.
+$Device = Assert-GameAudioDeviceName -Device $Device -AvailableDevices @(Get-GameAudioActiveDeviceName -SvclPath $SvclPath)
+
 Write-Host "Routing game audio to: $Device"
 & $SvclPath /SetAppDefault $Device all $exeName
 
