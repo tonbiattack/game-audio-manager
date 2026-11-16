@@ -16,6 +16,7 @@ $SettingsPath = Join-Path $PSScriptRoot 'config\settings.json'
 
 . "$PSScriptRoot\lib\GameAudio.Config.ps1"
 . "$PSScriptRoot\lib\GameAudio.Gui.ps1"
+. "$PSScriptRoot\lib\GameAudio.Mute.ps1"
 . "$PSScriptRoot\lib\GameAudio.Watch.ps1"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -91,9 +92,15 @@ $form.Controls.Add($deviceLabel)
 
 $deviceSelector = New-Object System.Windows.Forms.ComboBox
 $deviceSelector.Location = New-Object System.Drawing.Point(20, 108)
-$deviceSelector.Size = New-Object System.Drawing.Size(500, 24)
+$deviceSelector.Size = New-Object System.Drawing.Size(340, 24)
 $deviceSelector.DropDownStyle = 'DropDownList'
 $form.Controls.Add($deviceSelector)
+
+$muteButton = New-Object System.Windows.Forms.Button
+$muteButton.Text = 'ミュート切替'
+$muteButton.Location = New-Object System.Drawing.Point(370, 108)
+$muteButton.Size = New-Object System.Drawing.Size(150, 24)
+$form.Controls.Add($muteButton)
 
 $preferredButton = New-Object System.Windows.Forms.Button
 $preferredButton.Text = '優先デバイスを適用'
@@ -261,12 +268,43 @@ function Update-SelectedGameStatus {
         $preferredButton.Enabled = $false
         $selectedButton.Enabled = $false
         $resetButton.Enabled = $false
+        $muteButton.Enabled = $false
+        $muteButton.Text = 'ミュート切替'
         return
     }
     $preferredButton.Enabled = -not [string]::IsNullOrWhiteSpace($game.PreferredDevice)
     $selectedButton.Enabled = $deviceSelector.SelectedIndex -ge 0
     $resetButton.Enabled = $true
+    Update-MuteStateDisplay -Game $game
     if ($game.PreferredDevice) { $status.Text = "優先デバイス: $($game.PreferredDevice)" } else { $status.Text = '設定した優先デバイスは接続されていません。接続中のデバイスを選択してください。' }
+}
+
+# Reads the current mute state for the selected application.
+#
+# An application without an audio session is a normal state (it has not played
+# audio yet), so the button is disabled and the reason is shown instead of
+# letting the click fail.
+function Update-MuteStateDisplay {
+    param($Game)
+
+    try {
+        $sessions = @(Get-GameAudioSessionInfo -ProcessName $Game.ProcessName)
+        $script:muteState = Get-GameAudioMuteState -Sessions $sessions
+        $muteButton.Text = Format-GameAudioMuteButtonText -State $script:muteState
+        $muteButton.Enabled = $script:muteState.HasSession
+        if (-not $script:muteState.HasSession) {
+            $status.Text = "$($Game.Name): 音声セッションがありません。音声を再生してから更新してください。"
+        }
+        else {
+            $status.Text = '{0} ({1} セッション / {2} デバイス)' -f $script:muteState.Text, $script:muteState.SessionCount, $script:muteState.EndpointCount
+        }
+    }
+    catch {
+        $script:muteState = $null
+        $muteButton.Enabled = $false
+        $muteButton.Text = 'ミュート切替'
+        $status.Text = "ミュート状態の取得に失敗しました: $($_.Exception.Message)"
+    }
 }
 
 function Save-GuiSettings {
@@ -287,6 +325,28 @@ $selectedButton.add_Click({
 })
 $resetButton.add_Click({
     try { $status.Text = Invoke-GameOutputChange -ProcessName $gameSelector.SelectedItem.ProcessName -Reset } catch { $status.Text = "リセットに失敗しました: $($_.Exception.Message)" }
+})
+$muteButton.add_Click({
+    $game = $gameSelector.SelectedItem
+    if ($null -eq $game) { return }
+    try {
+        $sessions = @(Get-GameAudioSessionInfo -ProcessName $game.ProcessName)
+        if ($sessions.Count -eq 0) {
+            $status.Text = "$($game.Name): 音声セッションがありません。音声を再生してから更新してください。"
+            return
+        }
+        # Same rule as the CLI: any unmuted session means mute them all.
+        $targetMute = Get-GameAudioMuteTargetState -Sessions $sessions
+        $changed = Set-GameAudioSessionMute -ProcessName $game.ProcessName -Mute $targetMute
+        if ($changed -eq 0) {
+            $status.Text = "$($game.Name): 音声セッションは見つかりましたが変更できませんでした。"
+            return
+        }
+        Update-MuteStateDisplay -Game $game
+        $state = if ($targetMute) { 'ミュートしました' } else { 'ミュートを解除しました' }
+        $status.Text = '{0}: {1} ({2} セッション)' -f $game.Name, $state, $changed
+    }
+    catch { $status.Text = "ミュートの切り替えに失敗しました: $($_.Exception.Message)" }
 })
 $registerRuleButton.add_Click({
     $game = $gameSelector.SelectedItem

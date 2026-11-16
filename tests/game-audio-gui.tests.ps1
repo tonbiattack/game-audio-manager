@@ -85,4 +85,73 @@ Assert-Throws { ConvertTo-GameAudioRuleRequest -Game ([PSCustomObject]@{ Name = 
 $existing = ConvertTo-GameAudioRuleRequest -Game ([PSCustomObject]@{ Name = 'Shiren 6'; ProcessName = 'ShirenTheWanderer6'; OutputDevices = @('Device A') })
 Assert-Equal $existing.HasRule $true 'An app with devices must be reported as registered.'
 
+# --- mute state for the GUI ---
+function New-MuteSession {
+    param([int]$ProcessId, [string]$DeviceId, [bool]$Muted)
+    return [PSCustomObject]@{
+        ProcessId = $ProcessId
+        ProcessName = 'ExampleGame'
+        DeviceId = $DeviceId
+        DeviceName = $DeviceId
+        Muted = $Muted
+        IsSystemSounds = $false
+    }
+}
+
+# An application that has not played audio yet has no session. That is a normal
+# state: the GUI disables the button and explains it instead of failing.
+$noSession = Get-GameAudioMuteState -Sessions @()
+Assert-Equal $noSession.HasSession $false 'An empty session set must report no session.'
+Assert-Equal $noSession.SessionCount 0 'An empty session set must report zero sessions.'
+Assert-True ($noSession.Text -match '音声セッションなし') 'A missing session must be explained in the status text.'
+Assert-Equal (Format-GameAudioMuteButtonText -State $noSession) 'ミュート切替' 'A missing session must keep the neutral button label.'
+
+$unmuted = Get-GameAudioMuteState -Sessions @(
+    New-MuteSession -ProcessId 1 -DeviceId 'Device A' -Muted $false
+    New-MuteSession -ProcessId 1 -DeviceId 'Device B' -Muted $false
+)
+Assert-Equal $unmuted.HasSession $true 'Sessions must be reported as present.'
+Assert-Equal $unmuted.IsMuted $false 'All-unmuted sessions must report unmuted.'
+Assert-Equal $unmuted.IsMixed $false 'All-unmuted sessions must not report mixed.'
+Assert-Equal $unmuted.SessionCount 2 'The session count must be reported.'
+Assert-Equal $unmuted.EndpointCount 2 'The endpoint count must be reported.'
+Assert-True ($unmuted.Text -match '解除') 'Unmuted sessions must be described as unmuted.'
+Assert-Equal (Format-GameAudioMuteButtonText -State $unmuted) 'ミュートする' 'The button must offer to mute when unmuted.'
+
+$muted = Get-GameAudioMuteState -Sessions @(
+    New-MuteSession -ProcessId 1 -DeviceId 'Device A' -Muted $true
+    New-MuteSession -ProcessId 1 -DeviceId 'Device B' -Muted $true
+)
+Assert-Equal $muted.IsMuted $true 'All-muted sessions must report muted.'
+Assert-Equal $muted.IsMixed $false 'All-muted sessions must not report mixed.'
+Assert-True ($muted.Text -match 'ミュート中') 'Muted sessions must be described as muted.'
+Assert-Equal (Format-GameAudioMuteButtonText -State $muted) 'ミュートを解除' 'The button must offer to unmute when muted.'
+
+$mixed = Get-GameAudioMuteState -Sessions @(
+    New-MuteSession -ProcessId 1 -DeviceId 'Device A' -Muted $true
+    New-MuteSession -ProcessId 1 -DeviceId 'Device B' -Muted $false
+)
+Assert-Equal $mixed.IsMuted $false 'A mixed set must not report fully muted.'
+Assert-Equal $mixed.IsMixed $true 'A mixed set must report mixed.'
+Assert-True ($mixed.Text -match '混在') 'A mixed set must be described as mixed.'
+Assert-Equal (Format-GameAudioMuteButtonText -State $mixed) 'ミュートする' 'A mixed set must offer to mute, matching the CLI rule.'
+
+# The GUI must reuse the CLI mute rules rather than reimplementing them.
+$guiSource = Get-Content -LiteralPath $guiScript -Raw
+if ($guiSource -notmatch [regex]::Escape('lib\GameAudio.Mute.ps1')) {
+    throw 'The GUI must load the mute library.'
+}
+if ($guiSource -notmatch [regex]::Escape('Get-GameAudioMuteTargetState')) {
+    throw 'The GUI must reuse the CLI mixed-state rule.'
+}
+if ($guiSource -notmatch [regex]::Escape('Set-GameAudioSessionMute')) {
+    throw 'The GUI must apply mute through the shared mute library.'
+}
+if ($guiSource -notmatch [regex]::Escape('$muteButton.add_Click')) {
+    throw 'The GUI must wire a mute button click handler.'
+}
+if ($guiSource -notmatch [regex]::Escape('$muteButton.Enabled = $script:muteState.HasSession')) {
+    throw 'The GUI must disable the mute button when no audio session exists.'
+}
+
 Write-Host 'PASS: game-audio-gui tests'

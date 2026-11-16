@@ -1,5 +1,11 @@
 Set-StrictMode -Version Latest
 
+# ConvertTo-GameProcessName lives in GameAudio.Common.ps1. Load it here so this
+# library works when dot-sourced on its own, not only after the GUI's load order.
+if (-not (Get-Command -Name ConvertTo-GameProcessName -ErrorAction SilentlyContinue)) {
+    . "$PSScriptRoot\GameAudio.Common.ps1"
+}
+
 # Core Audio interop for per-application mute control.
 #
 # The previous implementation only looked at the default render endpoint and only
