@@ -1,11 +1,11 @@
 # Third-party notices
 
 This repository bundles the following unmodified files from the 64-bit
-SoundVolumeCommandLine v1.28 distribution:
+SoundVolumeCommandLine v1.28 distribution, located in `vendor/svcl/`:
 
-- `svcl.exe`
-- `svcl.chm`
-- `readme.txt`
+- `vendor/svcl/svcl.exe`
+- `vendor/svcl/svcl.chm`
+- `vendor/svcl/readme.txt`
 
 SoundVolumeCommandLine is Copyright (c) 2021-2026 Nir Sofer and is licensed
 as freeware. Its distribution terms are separate from this repository's MIT

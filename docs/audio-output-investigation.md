@@ -15,7 +15,7 @@ Steam 版『不思議のダンジョン 風来のシレン6 とぐろ島探検�
 
 `set-shiren-output.ps1` は NirSoft SoundVolumeCommandLine の `svcl.exe` を使い、シレン6に対する出力先設定を変更する。
 
-`svcl.exe` はリポジトリ直下に置く。別の場所にある場合は `-SvclPath` で明示する。
+`svcl.exe` は `vendor/svcl/` に同梱している。別の場所にある場合は `-SvclPath` で明示する。
 
 ```powershell
 # 利用可能なデバイスを確認
@@ -28,7 +28,7 @@ Steam 版『不思議のダンジョン 風来のシレン6 とぐろ島探検�
 .\set-shiren-output.ps1 -Reset
 ```
 
-確認時点で `C:\apps\toggle-shiren-mute\svcl.exe` は配置済みである。
+同梱物の置き場を `vendor/svcl/` へ移した経緯は Issue #24 を参照。
 
 デバイス名は PC ごとに異なる。`-List` の `指定値` を、`-Device` にそのまま指定する。検証環境では `Realtek(R) Audio`、`Soundcore Space A40`、`AMD High Definition Audio Device` が指定値として表示された。`表示名`（例: `Speaker`、`ヘッドホン`）ではない点に注意する。
 

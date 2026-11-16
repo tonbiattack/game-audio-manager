@@ -1,0 +1,42 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: PowerShell tests (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show PowerShell versions
+        shell: pwsh
+        run: |
+          $PSVersionTable.PSVersion.ToString()
+          powershell.exe -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+
+      - name: Run device-independent tests
+        shell: pwsh
+        run: ./tests/run-all.tests.ps1
+
+      - name: Verify bundled svcl files are present
+        shell: pwsh
+        run: |
+          $required = @(
+            'vendor/svcl/svcl.exe',
+            'vendor/svcl/svcl.chm',
+            'vendor/svcl/readme.txt'
+          )
+          $missing = @($required | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) })
+          if ($missing.Count -gt 0) {
+            throw "Bundled SoundVolumeCommandLine files are missing: $($missing -join ', ')"
+          }
+          Write-Host 'Bundled svcl files are present.'

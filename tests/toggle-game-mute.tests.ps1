@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $genericScript = Join-Path $PSScriptRoot '..\toggle-game-mute.ps1'
 $shirenWrapper = Join-Path $PSScriptRoot '..\toggle-shiren-mute.ps1'

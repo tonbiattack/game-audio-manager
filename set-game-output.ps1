@@ -14,12 +14,10 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib\GameAudio.Common.ps1"
 
 if ([string]::IsNullOrWhiteSpace($SvclPath)) {
-    $SvclPath = Join-Path $PSScriptRoot 'svcl.exe'
+    $SvclPath = Get-GameAudioSvclPath -RepositoryPath $PSScriptRoot
 }
 
-if (-not (Test-Path -LiteralPath $SvclPath)) {
-    throw "svcl.exe was not found: $SvclPath. Download SoundVolumeCommandLine from NirSoft and place svcl.exe next to this script, or specify -SvclPath."
-}
+Assert-GameAudioSvclPath -SvclPath $SvclPath
 
 if ($RawList) {
     & $SvclPath /Stdout /scomma ''

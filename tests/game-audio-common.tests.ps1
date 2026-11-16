@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $library = Join-Path $PSScriptRoot '..\lib\GameAudio.Common.ps1'
 if (-not (Test-Path -LiteralPath $library)) { throw 'Shared game-audio library is missing.' }
@@ -10,6 +10,12 @@ function Assert-Equal {
     if ($Actual -ne $Expected) {
         throw "$Message Expected '$Expected', got '$Actual'."
     }
+}
+
+function Assert-True {
+    param([bool]$Value, [string]$Message)
+
+    if (-not $Value) { throw $Message }
 }
 
 function global:Get-Process {
@@ -40,6 +46,23 @@ catch {
     }
     if ($_.Exception.Message -match 'Shiren|シレン') {
         throw "Missing-process diagnostics must be game-neutral. Actual: $($_.Exception.Message)"
+    }
+}
+
+# --- bundled svcl.exe location ---
+$repositoryPath = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$defaultSvclPath = Get-GameAudioSvclPath -RepositoryPath $repositoryPath
+Assert-Equal $defaultSvclPath (Join-Path $repositoryPath 'vendor\svcl\svcl.exe') 'The default svcl.exe path must resolve into vendor\svcl.'
+Assert-True (Test-Path -LiteralPath $defaultSvclPath -PathType Leaf) 'The bundled svcl.exe must exist at the default path.'
+
+Assert-GameAudioSvclPath -SvclPath $defaultSvclPath
+try {
+    Assert-GameAudioSvclPath -SvclPath (Join-Path $repositoryPath 'vendor\svcl\missing-svcl.exe')
+    throw 'A missing svcl.exe must be rejected.'
+}
+catch {
+    if ($_.Exception.Message -notmatch [regex]::Escape('svcl.exe was not found')) {
+        throw "A missing svcl.exe must produce a clear error. Actual: $($_.Exception.Message)"
     }
 }
 

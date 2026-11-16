@@ -14,11 +14,9 @@ $ErrorActionPreference = 'Stop'
 
 if ([string]::IsNullOrWhiteSpace($ConfigPath)) { $ConfigPath = Join-Path $PSScriptRoot 'config\games.json' }
 if ([string]::IsNullOrWhiteSpace($StatusPath)) { $StatusPath = Join-Path $PSScriptRoot 'config\watcher-status.json' }
-if ([string]::IsNullOrWhiteSpace($SvclPath)) { $SvclPath = Join-Path $PSScriptRoot 'svcl.exe' }
+if ([string]::IsNullOrWhiteSpace($SvclPath)) { $SvclPath = Get-GameAudioSvclPath -RepositoryPath $PSScriptRoot }
 
-if (-not (Test-Path -LiteralPath $SvclPath -PathType Leaf)) {
-    throw "svcl.exe was not found: $SvclPath. Download SoundVolumeCommandLine from NirSoft and place svcl.exe next to this script, or specify -SvclPath."
-}
+Assert-GameAudioSvclPath -SvclPath $SvclPath
 
 function Get-GameWatchProcessIdentity {
     param($Process)

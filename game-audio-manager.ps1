@@ -6,8 +6,10 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+. "$PSScriptRoot\lib\GameAudio.Common.ps1"
+
 if ([string]::IsNullOrWhiteSpace($ConfigPath)) { $ConfigPath = Join-Path $PSScriptRoot 'config\games.json' }
-if ([string]::IsNullOrWhiteSpace($SvclPath)) { $SvclPath = Join-Path $PSScriptRoot 'svcl.exe' }
+if ([string]::IsNullOrWhiteSpace($SvclPath)) { $SvclPath = Get-GameAudioSvclPath -RepositoryPath $PSScriptRoot }
 $WatcherScriptPath = Join-Path $PSScriptRoot 'watch-game-output.ps1'
 $WatchStatusPath = Join-Path $PSScriptRoot 'config\watcher-status.json'
 $SettingsPath = Join-Path $PSScriptRoot 'config\settings.json'
@@ -19,7 +21,7 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 function Get-ActiveRenderDeviceNames {
-    if (-not (Test-Path -LiteralPath $SvclPath -PathType Leaf)) { throw "svcl.exe was not found: $SvclPath" }
+    Assert-GameAudioSvclPath -SvclPath $SvclPath
     $csv = @(& $SvclPath /Stdout /scomma '')
     if ($LASTEXITCODE -ne 0) { throw "Failed to list audio devices. svcl.exe exit code: $LASTEXITCODE" }
     return @($csv | ConvertFrom-Csv | Where-Object { $_.Type -eq 'Device' -and $_.Direction -eq 'Render' -and $_.'Device State' -eq 'Active' } | ForEach-Object { $_.'Device Name' })

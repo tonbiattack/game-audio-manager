@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $scriptPath = Join-Path $PSScriptRoot '..\detect-game-process.ps1'
 if (-not (Test-Path -LiteralPath $scriptPath)) { throw 'Generic process-detection command is missing.' }
