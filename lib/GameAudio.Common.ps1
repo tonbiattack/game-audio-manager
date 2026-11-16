@@ -31,3 +31,21 @@ function Resolve-GameProcess {
 
     return $processes[0]
 }
+
+function Get-GameAudioSvclPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$RepositoryPath
+    )
+
+    return (Join-Path $RepositoryPath 'vendor\svcl\svcl.exe')
+}
+
+function Assert-GameAudioSvclPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$SvclPath
+    )
+
+    if (-not (Test-Path -LiteralPath $SvclPath -PathType Leaf)) {
+        throw "svcl.exe was not found: $SvclPath. Restore the bundled vendor\svcl\ files, download SoundVolumeCommandLine from NirSoft, or specify -SvclPath."
+    }
+}

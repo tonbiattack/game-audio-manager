@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $genericScript = Join-Path $PSScriptRoot '..\set-game-output.ps1'
 $shirenWrapper = Join-Path $PSScriptRoot '..\set-shiren-output.ps1'

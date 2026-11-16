@@ -1,0 +1,17 @@
+# Normalize line endings in the working tree for Windows tooling.
+* text=auto eol=crlf
+
+# Documentation and CI config stay LF so diffs and Actions parsing are stable.
+*.md   text eol=lf
+*.yml  text eol=lf
+*.json text eol=lf
+
+# Bundled SoundVolumeCommandLine distribution files must stay byte-identical.
+*.exe binary
+*.chm binary
+
+# NOTE: scripts containing non-ASCII text must be saved as UTF-8 *with* BOM.
+# Windows PowerShell 5.1 reads a BOM-less file as the ANSI code page, which
+# corrupts Japanese string literals and breaks parsing. tests/repo-layout.tests.ps1
+# enforces this, so it is not expressed here (a blanket rule would force a BOM
+# onto the pure-ASCII scripts too).

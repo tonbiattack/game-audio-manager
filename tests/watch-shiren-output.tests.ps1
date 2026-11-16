@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$module = Join-Path $PSScriptRoot '..\shiren-output-watch.ps1'
+$module = Join-Path $PSScriptRoot '..\legacy\shiren6\ShirenOutputWatch.ps1'
 if (-not (Test-Path $module)) { throw 'Monitor implementation is missing.' }
 . $module
 
