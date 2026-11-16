@@ -127,3 +127,61 @@ function ConvertTo-GameAudioRuleRequest {
         HasRule = ($configuredDevices.Count -gt 0)
     }
 }
+
+# Describes the mute state of an application for the GUI.
+#
+# A missing audio session is a normal state, not an error: an application that
+# has not played audio yet has nothing to mute. The GUI disables the button and
+# explains why instead of failing.
+function Get-GameAudioMuteState {
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Sessions
+    )
+
+    $all = @($Sessions)
+    if ($all.Count -eq 0) {
+        return [PSCustomObject]@{
+            HasSession = $false
+            IsMuted = $false
+            IsMixed = $false
+            SessionCount = 0
+            EndpointCount = 0
+            Text = 'ミュート: 音声セッションなし'
+        }
+    }
+
+    $mutedCount = @($all | Where-Object { $_.Muted }).Count
+    $isMuted = ($mutedCount -eq $all.Count)
+    $isMixed = ($mutedCount -gt 0 -and $mutedCount -lt $all.Count)
+    $endpointCount = @($all | ForEach-Object { $_.DeviceId } | Sort-Object -Unique).Count
+
+    if ($isMixed) {
+        $text = 'ミュート: 混在 ({0}/{1} セッション)' -f $mutedCount, $all.Count
+    }
+    elseif ($isMuted) {
+        $text = 'ミュート: ミュート中'
+    }
+    else {
+        $text = 'ミュート: 解除'
+    }
+
+    return [PSCustomObject]@{
+        HasSession = $true
+        IsMuted = $isMuted
+        IsMixed = $isMixed
+        SessionCount = $all.Count
+        EndpointCount = $endpointCount
+        Text = $text
+    }
+}
+
+# The button label states what the next click will do.
+function Format-GameAudioMuteButtonText {
+    param(
+        [Parameter(Mandatory = $true)]$State
+    )
+
+    if (-not $State.HasSession) { return 'ミュート切替' }
+    if ($State.IsMuted) { return 'ミュートを解除' }
+    return 'ミュートする'
+}
