@@ -71,12 +71,26 @@ if ([string]::IsNullOrWhiteSpace($ProcessName)) {
     throw 'Specify the game with -Game or -ProcessName.'
 }
 
-$process = Resolve-GameProcess -ProcessName $ProcessName
-$exeName = "$($process.ProcessName).exe"
+$processes = @(Get-GameProcesses -ProcessName $ProcessName)
+if ($processes.Count -eq 0) {
+    $name = ConvertTo-GameProcessName -ProcessName $ProcessName
+    throw "Game process '$name' was not found. Start the game first, then run .\detect-game-process.ps1 -ProcessName '$name' to diagnose."
+}
+$exeName = "$($processes[0].ProcessName).exe"
 
 Write-Host 'Detected game process:'
 Write-Host "  Process: $exeName"
-Write-Host "  PID:     $($process.Id)"
+$pidList = @($processes | ForEach-Object { $_.Id })
+if ($pidList.Count -le 5) {
+    Write-Host "  PID:     $($pidList -join ', ')"
+}
+else {
+    Write-Host "  PID:     $($pidList[0..4] -join ', '), ... ($($pidList.Count) total)"
+}
+# svcl.exe routes per executable name, so every PID under that name is covered.
+if ($processes.Count -gt 1) {
+    Write-Host "  Note:    $($processes.Count) processes share this name; the output device applies to all of them."
+}
 
 if ($Reset) {
     Write-Host 'Resetting game output device to Windows default...'

@@ -52,6 +52,12 @@ Assert-True ($readme -notmatch [regex]::Escape('C:\apps\toggle-shiren-mute')) 'T
 $shirenDocText = Get-Content -Raw -LiteralPath $shirenDoc
 Assert-True ($shirenDocText -notmatch [regex]::Escape('C:\apps\toggle-shiren-mute')) 'docs/shiren6.md must not keep the old repository path.'
 
+# --- shared libraries live in lib\ ---
+foreach ($name in @('GameAudio.Common.ps1', 'GameAudio.Config.ps1', 'GameAudio.Gui.ps1', 'GameAudio.Mute.ps1', 'GameAudio.Startup.ps1', 'GameAudio.Watch.ps1')) {
+    $libraryPath = Join-Path $repositoryPath "lib\$name"
+    Assert-True (Test-Path -LiteralPath $libraryPath -PathType Leaf) "The shared library lib\$name must exist."
+}
+
 # --- CI runs the device-independent suite ---
 $workflow = Join-Path $repositoryPath '.github\workflows\tests.yml'
 Assert-True (Test-Path -LiteralPath $workflow -PathType Leaf) 'A GitHub Actions workflow must run the tests.'

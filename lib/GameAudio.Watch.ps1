@@ -1,4 +1,4 @@
-﻿Set-StrictMode -Version Latest
+Set-StrictMode -Version Latest
 
 function New-GameAudioWatchState {
     return @{
@@ -31,9 +31,94 @@ function Update-GameAudioWatchState {
     }
 }
 
+function Get-GameAudioWatchProcessIdentity {
+    param($Process)
+
+    if ($null -eq $Process) { return $null }
+    return '{0}:{1}' -f $Process.Id, $Process.StartTime.ToUniversalTime().Ticks
+}
+
+# Runs one monitoring cycle over every enabled game.
+#
+# Each game is evaluated inside its own try/catch and owns a separate entry in
+# $States, so a failure or restart for one game cannot disturb another. The
+# process lookup and the device apply are injected so the cycle is testable
+# without a live game or audio device.
+function Invoke-GameAudioWatchCycle {
+    param(
+        [AllowEmptyCollection()][object[]]$Games,
+        [AllowEmptyCollection()][string[]]$ActiveDevices,
+        [Parameter(Mandatory = $true)][System.Collections.IDictionary]$States,
+        [Parameter(Mandatory = $true)][scriptblock]$GetProcess,
+        [Parameter(Mandatory = $true)][scriptblock]$ApplyDevice
+    )
+
+    $applicationStatuses = @()
+    foreach ($game in @(@($Games) | Where-Object { $_.Enabled })) {
+        $process = $null
+        $state = $null
+        $cycleError = $null
+        try {
+            $processName = ConvertTo-GameProcessName -ProcessName $game.ProcessName
+            $process = & $GetProcess $processName
+            $identity = Get-GameAudioWatchProcessIdentity -Process $process
+            $destination = Get-PreferredConfiguredDevice -Candidates @($game.OutputDevices) -ActiveDevices $ActiveDevices
+
+            $key = $processName.ToLowerInvariant()
+            if (-not $States.Contains($key)) { $States[$key] = New-GameAudioWatchState }
+            $state = $States[$key]
+
+            $apply = {
+                param($Device, $State)
+                try {
+                    & $ApplyDevice $processName $Device
+                    $State.LastError = $null
+                    return $true
+                }
+                catch {
+                    $State.LastError = $_.Exception.Message
+                    return $false
+                }
+            }
+            Update-GameAudioWatchState $state $identity $destination $apply
+        }
+        catch {
+            # An incomplete observation must not be treated as a successful application.
+            $cycleError = $_.Exception.Message
+            if ($null -ne $state) {
+                $state.Applied = $false
+                $state.LastError = $cycleError
+            }
+        }
+
+        $appliedDevice = $null
+        $appliedAt = $null
+        $lastError = $cycleError
+        $destinationDevice = $null
+        if ($null -ne $state) {
+            if ($state.Applied) {
+                $appliedDevice = $state.AppliedDevice
+                $appliedAt = $state.AppliedAt
+            }
+            $lastError = $state.LastError
+            $destinationDevice = $state.Destination
+        }
+        $applicationStatuses += [PSCustomObject]@{
+            name = $game.Name
+            processName = $game.ProcessName
+            enabled = [bool]$game.Enabled
+            running = ($null -ne $process)
+            destinationDevice = $destinationDevice
+            appliedDevice = $appliedDevice
+            appliedAt = $appliedAt
+            error = $lastError
+        }
+    }
+    return $applicationStatuses
+}
+
 function Enter-GameAudioWatchMutex {
     param([Parameter(Mandatory = $true)][string]$Name)
-
     $createdNew = $false
     $mutex = [System.Threading.Mutex]::new($false, "Local\$Name", [ref]$createdNew)
     if (-not $createdNew -or -not $mutex.WaitOne(0)) {
@@ -102,15 +187,36 @@ function Get-GameAudioWatchStatus {
     }
 }
 
+# ConvertFrom-Json turns an ISO-8601 string into a [DateTime] whose Kind is Utc.
+# Casting that to [string] formats it in local time *without* the offset, so
+# re-parsing it as an invariant DateTimeOffset shifts the value by the UTC offset
+# (9 hours in JST) and makes a live watcher look stale. Read the value directly
+# instead of round-tripping it through a string.
+function ConvertTo-GameAudioWatchTimestamp {
+    param($Value)
+
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [DateTimeOffset]) { return $Value }
+    if ($Value -is [DateTime]) {
+        if ($Value.Kind -eq [DateTimeKind]::Unspecified) {
+            return [DateTimeOffset]::new([DateTime]::SpecifyKind($Value, [DateTimeKind]::Utc))
+        }
+        return [DateTimeOffset]::new($Value)
+    }
+    $text = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($text)) { return $null }
+    return [DateTimeOffset]::Parse($text, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AssumeUniversal)
+}
+
 function Test-GameAudioWatchRunning {
     param([string]$StatusPath)
-
     $status = Get-GameAudioWatchStatus -StatusPath $StatusPath
     if ($null -eq $status -or $null -eq $status.watcher) { return $false }
     try {
         $interval = [int]$status.watcher.intervalSeconds
         if ($interval -lt 1) { $interval = 5 }
-        $updatedAt = [DateTimeOffset]::Parse([string]$status.watcher.updatedAt, [System.Globalization.CultureInfo]::InvariantCulture)
+        $updatedAt = ConvertTo-GameAudioWatchTimestamp -Value $status.watcher.updatedAt
+        if ($null -eq $updatedAt) { return $false }
         $age = [DateTimeOffset]::UtcNow - $updatedAt.ToUniversalTime()
         if ($age.TotalSeconds -gt (($interval * 2) + 15)) { return $false }
         $watcherPid = [int]$status.watcher.pid

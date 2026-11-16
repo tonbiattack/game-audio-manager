@@ -150,13 +150,54 @@ GUI の右側で監視を操作します。
 プロセスが見つからない場合、エラーには指定したプロセス名が表示されます。
 `detect-game-process.ps1` で実行中のプロセス名を確認してください。
 
+### ミュートの対象範囲
+
+`toggle-game-mute.ps1` は、指定したプロセス名に一致する**すべての音声セッション**を対象にします。
+
+- **すべての再生エンドポイント**を走査します。既定以外のデバイスへ出力しているアプリも対象です
+- 同じプロセス名の**複数 PID** を扱います。ゲームが子プロセスから音を出している場合も取りこぼしません
+- 同じアプリが複数デバイスへ同時に音声セッションを持つ場合、**すべてを同じ状態へ揃えます**
+
+混在状態（一部だけミュート）のときの規則は「**1つでもミュートされていないセッションがあれば、
+すべてをミュートする**」です。これにより、トグル後の状態は常に「全ミュート」か「全解除」の
+どちらかになります。
+
+現在の状態を確認するには `-Status` を使います。
+
+```powershell
+.\toggle-game-mute.ps1 -ProcessName "ExampleGame" -Status
+```
+
+```text
+ProcessId Device                                Muted
+--------- ------                                -----
+    31668 スピーカー (Steam Streaming Speakers)  True
+    31668 ヘッドホン (soundcore Liberty 4 NC)    True
+```
+
+音声セッションがまだ存在しない場合（起動直後で音を出していない等）は、
+「No audio session was found」で失敗します。音声を再生させてから再実行してください。
+
+### 出力先変更の対象範囲
+
+`set-game-output.ps1` は `svcl.exe` のアプリ別設定を使うため、**実行ファイル名単位**で適用されます。
+同じ名前の PID が複数あってもすべてに効きます。実行時に PID が複数見つかった場合はその旨を表示します。
+
+```text
+Detected game process:
+  Process: chrome.exe
+  PID:     6560, 6760, 7520, 8308, 8368, ... (39 total)
+  Note:    39 processes share this name; the output device applies to all of them.
+```
+
 ### ゲーム別のプロセス名の例
 
-| ゲーム | `-ProcessName` |
-| --- | --- |
-| Slay the Spire 2（Steam版） | `SlayTheSpire2` |
-| Balatro（Steam版） | `Balatro` |
-| 風来のシレン6（Steam版） | `ShirenTheWanderer6` |
+| ゲーム | `-ProcessName` | 実機確認 |
+| --- | --- | --- |
+| Slay the Spire 2（Steam版） | `SlayTheSpire2` | 未確認 |
+| Balatro（Steam版） | `Balatro` | 確認済み |
+| RimWorld（Steam版） | `RimWorldWin64` | 確認済み |
+| 風来のシレン6（Steam版） | `ShirenTheWanderer6` | 確認済み |
 
 ```powershell
 .\detect-game-process.ps1 -ProcessName "SlayTheSpire2"
@@ -166,6 +207,36 @@ GUI の右側で監視を操作します。
 ```
 
 出力先を選ぶ前に `set-game-output.ps1 -List` を実行し、表示された `指定値` を `-Device` に指定してください。
+
+### RimWorld（Steam版）
+
+Steam版 RimWorld の実行ファイルは `RimWorldWin64.exe`、プロセス名は `RimWorldWin64` です。
+Steam のインストール先は既定で `C:\Program Files (x86)\Steam\steamapps\common\RimWorld` です。
+
+```powershell
+.\detect-game-process.ps1 -ProcessName "RimWorldWin64"
+.\toggle-game-mute.ps1 -ProcessName "RimWorldWin64"
+.\set-game-output.ps1 -ProcessName "RimWorldWin64" -Device "使用するデバイス名"
+.\set-game-output.ps1 -ProcessName "RimWorldWin64" -Reset
+```
+
+実機（Windows 11 / RimWorld Steam版）で次を確認しました。
+
+| 項目 | 結果 |
+| --- | --- |
+| プロセス検出 | `RimWorldWin64` / PID / ウィンドウタイトル `RimWorld by Ludeon Studios` を検出 |
+| ミュート→解除 | 2回の実行で交互に切り替わり、`svcl.exe` の `Muted` 列でも確認 |
+| 出力先変更 | 設定は記録され、**次に音声セッションが作られたとき**（ゲーム再起動後）に反映 |
+| 既定出力へ戻す | `-Reset` 後に再起動すると Windows の既定デバイスへ戻ることを確認 |
+
+**音声セッションが未生成のときの扱い:** RimWorld は起動直後、音声をまだ再生していないと
+音声セッションを持ちません。この状態で `-Device` を実行しても、`svcl.exe` は終了コード 0 を返し
+設定は記録されますが、**既存のセッションは移動しません**。設定は次回セッション生成時に効きます。
+そのため「実行直後に `-List` で確認しても変わらない」ことがありますが、異常ではありません。
+すぐ反映したい場合はゲーム内で音声を再生させるか、ゲームを再起動してください。
+
+ミュートは音声セッションが存在しないと対象がないため、`toggle-game-mute.ps1` は
+「No audio session was found」で失敗します。これは仕様です。
 
 ## シレン6 専用の手順
 
@@ -179,10 +250,15 @@ GUI の右側で監視を操作します。
 実機のオーディオセッションと出力先は自動テストでは検証できないため、変更後は次を確認してください。
 
 1. 対象ゲームを起動し、`detect-game-process.ps1 -ProcessName "実際のプロセス名"` で PID を確認する。
-2. `toggle-game-mute.ps1 -ProcessName "実際のプロセス名"` を2回実行し、ミュートと解除が交互に切り替わることを確認する。
-3. `set-game-output.ps1 -List` で有効なデバイス名を確認し、`-Device` で出力先を変更する。
-4. `set-game-output.ps1 -ProcessName "実際のプロセス名" -Reset` で Windows の既定出力に戻す。
-5. 存在しない名前を指定し、エラーにそのプロセス名が表示されることを確認する。
+2. `toggle-game-mute.ps1 -ProcessName "実際のプロセス名" -Status` で対象セッションと現在の状態を確認する。
+3. `toggle-game-mute.ps1 -ProcessName "実際のプロセス名"` を2回実行し、ミュートと解除が交互に切り替わることを確認する。
+4. `set-game-output.ps1 -List` で有効なデバイス名を確認し、`-Device` で出力先を変更する。
+5. `set-game-output.ps1 -ProcessName "実際のプロセス名" -Reset` で Windows の既定出力に戻す。
+6. 存在しない名前を指定し、エラーにそのプロセス名が表示されることを確認する。
+
+複数ゲームの同時監視を確認する場合は、2つのゲームを `config/games.json` に登録して
+`watch-game-output.ps1` を起動し、`config/watcher-status.json` の `apps` に
+ゲームごとの `appliedDevice` が別々に記録されることを確認します。
 
 ## 開発
 
