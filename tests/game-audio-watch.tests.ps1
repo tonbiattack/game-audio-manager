@@ -1,7 +1,11 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 
 $library = Join-Path $PSScriptRoot '..\lib\GameAudio.Watch.ps1'
+$configLibrary = Join-Path $PSScriptRoot '..\lib\GameAudio.Config.ps1'
+$commonLibrary = Join-Path $PSScriptRoot '..\lib\GameAudio.Common.ps1'
 if (-not (Test-Path -LiteralPath $library)) { throw 'Game audio watch library is missing.' }
+. $commonLibrary
+. $configLibrary
 . $library
 
 function Assert-Equal {
@@ -123,6 +127,25 @@ try {
     Assert-Equal (@($loaded.apps))[0].processName 'ShirenTheWanderer6' 'Reading a status must expose per-app entries.'
 
     Assert-True (Test-GameAudioWatchRunning -StatusPath $statusPath) 'A fresh status from a living process must report running.'
+
+    # ConvertFrom-Json yields a [DateTime] with Kind=Utc. Casting it to [string]
+    # formats it in local time without the offset, so a string round-trip shifted
+    # the value by the UTC offset and made a live watcher look stale.
+    $timestamp = ConvertTo-GameAudioWatchTimestamp -Value ([DateTime]::UtcNow)
+    Assert-True ($null -ne $timestamp) 'A DateTime must convert to a timestamp.'
+    $age = ([DateTimeOffset]::UtcNow - $timestamp.ToUniversalTime()).TotalSeconds
+    Assert-True ([Math]::Abs($age) -lt 60) "A current UTC DateTime must not shift by the UTC offset. Age was $age seconds."
+
+    $offsetTimestamp = ConvertTo-GameAudioWatchTimestamp -Value ([DateTime]::UtcNow.AddHours(-1))
+    $offsetAge = ([DateTimeOffset]::UtcNow - $offsetTimestamp.ToUniversalTime()).TotalSeconds
+    Assert-True ($offsetAge -gt 3500 -and $offsetAge -lt 3700) "An hour-old UTC DateTime must read as about an hour old. Age was $offsetAge seconds."
+
+    $stringTimestamp = ConvertTo-GameAudioWatchTimestamp -Value ([DateTime]::UtcNow.ToString('o'))
+    $stringAge = ([DateTimeOffset]::UtcNow - $stringTimestamp.ToUniversalTime()).TotalSeconds
+    Assert-True ([Math]::Abs($stringAge) -lt 60) "An ISO-8601 string must round-trip without shifting. Age was $stringAge seconds."
+
+    Assert-True ($null -eq (ConvertTo-GameAudioWatchTimestamp -Value $null)) 'A null timestamp must stay null.'
+    Assert-True ($null -eq (ConvertTo-GameAudioWatchTimestamp -Value '')) 'An empty timestamp must stay null.'
     Assert-True ((Get-GameAudioWatchStatusPath) -like '*config\watcher-status.json') 'The default status path must resolve into config\watcher-status.json.'
 
     $stalePath = Join-Path $testDirectory 'stale.json'
@@ -163,6 +186,102 @@ try {
 finally {
     Remove-Item -LiteralPath $testDirectory -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+# --- multi-game cycle: per-game isolation ---
+# Two games must be able to hold different destinations at the same time, and a
+# failure or restart for one must not disturb the other.
+function New-TestGame {
+    param([string]$Name, [string]$ProcessName, [string[]]$OutputDevices, [bool]$Enabled = $true)
+    return [PSCustomObject]@{
+        Name = $Name
+        ProcessName = $ProcessName
+        OutputDevices = [string[]]$OutputDevices
+        Enabled = $Enabled
+    }
+}
+
+function New-TestProcess {
+    param([int]$Id, [string]$ProcessName)
+    return [PSCustomObject]@{
+        Id = $Id
+        ProcessName = $ProcessName
+        StartTime = [DateTime]::new(2026, 1, 1, 0, 0, 0, [DateTimeKind]::Utc)
+    }
+}
+
+$games = @(
+    New-TestGame -Name 'Game A' -ProcessName 'GameA' -OutputDevices @('Device A', 'Device Shared')
+    New-TestGame -Name 'Game B' -ProcessName 'GameB' -OutputDevices @('Device B', 'Device Shared')
+    New-TestGame -Name 'Disabled' -ProcessName 'GameC' -OutputDevices @('Device A') -Enabled $false
+)
+$running = @{ GameA = New-TestProcess -Id 101 -ProcessName 'GameA'; GameB = New-TestProcess -Id 202 -ProcessName 'GameB' }
+$applied = @{}
+$states = @{}
+
+$getProcess = { param($ProcessName) $running[$ProcessName] }
+$applyDevice = {
+    param($ProcessName, $Device)
+    $script:applied[$ProcessName] = $Device
+}
+
+$statuses = @(Invoke-GameAudioWatchCycle -Games $games -ActiveDevices @('Device A', 'Device B', 'Device Shared') -States $states -GetProcess $getProcess -ApplyDevice $applyDevice)
+Assert-Equal $statuses.Count 2 'Disabled games must not be monitored.'
+Assert-Equal ($statuses.name -join ',') 'Game A,Game B' 'Every enabled game must be reported.'
+Assert-Equal $applied['GameA'] 'Device A' 'Game A must receive its own preferred device.'
+Assert-Equal $applied['GameB'] 'Device B' 'Game B must receive its own preferred device.'
+Assert-Equal $statuses[0].appliedDevice 'Device A' 'Game A status must report its applied device.'
+Assert-Equal $statuses[1].appliedDevice 'Device B' 'Game B status must report its applied device.'
+
+# A second cycle with nothing changed must not reapply either game.
+$applied = @{}
+$null = Invoke-GameAudioWatchCycle -Games $games -ActiveDevices @('Device A', 'Device B', 'Device Shared') -States $states -GetProcess $getProcess -ApplyDevice $applyDevice
+Assert-Equal $applied.Count 0 'A stable cycle must not reapply any game.'
+
+# Restarting Game A must reapply only Game A.
+$applied = @{}
+$running['GameA'] = New-TestProcess -Id 303 -ProcessName 'GameA'
+$statuses = @(Invoke-GameAudioWatchCycle -Games $games -ActiveDevices @('Device A', 'Device B', 'Device Shared') -States $states -GetProcess $getProcess -ApplyDevice $applyDevice)
+Assert-Equal $applied.Count 1 'A restart for one game must not reapply the other.'
+Assert-Equal $applied['GameA'] 'Device A' 'The restarted game must be reapplied.'
+Assert-Equal $statuses[1].appliedDevice 'Device B' 'The untouched game must keep its applied device.'
+
+# A failure for Game B must not clear Game A's applied state.
+$applied = @{}
+$failingApply = {
+    param($ProcessName, $Device)
+    if ($ProcessName -eq 'GameB') { throw 'apply failed for GameB' }
+    $script:applied[$ProcessName] = $Device
+}
+$running['GameB'] = New-TestProcess -Id 404 -ProcessName 'GameB'
+$statuses = @(Invoke-GameAudioWatchCycle -Games $games -ActiveDevices @('Device A', 'Device B', 'Device Shared') -States $states -GetProcess $getProcess -ApplyDevice $failingApply)
+Assert-Equal $statuses[0].appliedDevice 'Device A' 'A failure in one game must not clear another game''s applied state.'
+Assert-True ($statuses[1].error -match 'apply failed for GameB') 'The failing game must report its error.'
+Assert-Equal $statuses[1].appliedDevice $null 'The failing game must not report an applied device.'
+
+# A game that is not running must be reported as stopped without failing the cycle.
+$running.Remove('GameB')
+$statuses = @(Invoke-GameAudioWatchCycle -Games $games -ActiveDevices @('Device A', 'Device B', 'Device Shared') -States $states -GetProcess $getProcess -ApplyDevice $applyDevice)
+Assert-Equal $statuses[0].running $true 'The running game must still be reported as running.'
+Assert-Equal $statuses[1].running $false 'The stopped game must be reported as stopped.'
+Assert-Equal $statuses[0].appliedDevice 'Device A' 'A stopped game must not disturb the running game.'
+
+# A device disconnect must fall back to the next active candidate per game.
+$applied = @{}
+$running['GameB'] = New-TestProcess -Id 505 -ProcessName 'GameB'
+$statuses = @(Invoke-GameAudioWatchCycle -Games $games -ActiveDevices @('Device Shared') -States $states -GetProcess $getProcess -ApplyDevice $applyDevice)
+Assert-Equal $applied['GameA'] 'Device Shared' 'Game A must fall back to the shared candidate.'
+Assert-Equal $applied['GameB'] 'Device Shared' 'Game B must fall back to the shared candidate.'
+
+# A process lookup that throws for one game must not abort the cycle.
+$throwingGetProcess = {
+    param($ProcessName)
+    if ($ProcessName -eq 'GameA') { throw 'lookup failed for GameA' }
+    $running[$ProcessName]
+}
+$statuses = @(Invoke-GameAudioWatchCycle -Games $games -ActiveDevices @('Device A', 'Device B', 'Device Shared') -States $states -GetProcess $throwingGetProcess -ApplyDevice $applyDevice)
+Assert-Equal $statuses.Count 2 'A lookup failure for one game must not abort the cycle.'
+Assert-True ($statuses[0].error -match 'lookup failed for GameA') 'The failing lookup must be reported.'
+Assert-Equal $statuses[1].running $true 'The other game must still be evaluated.'
 
 # --- watchers launched for the GUI ---
 $watcherScript = (Resolve-Path (Join-Path $PSScriptRoot '..\watch-game-output.ps1')).Path
