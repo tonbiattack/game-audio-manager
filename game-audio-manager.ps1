@@ -41,7 +41,7 @@ function Invoke-GameOutputChange {
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Application Audio Manager'
-$form.Size = New-Object System.Drawing.Size(560, 430)
+$form.Size = New-Object System.Drawing.Size(800, 470)
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
@@ -181,8 +181,54 @@ $watchStatusLabel.Size = New-Object System.Drawing.Size(500, 68)
 $watchStatusLabel.AutoEllipsis = $true
 $form.Controls.Add($watchStatusLabel)
 
+# --- priority device editor ---
+# The candidate order decides which device the watcher picks, so it is edited
+# here instead of by hand in config/games.json.
+$priorityLabel = New-Object System.Windows.Forms.Label
+$priorityLabel.Text = '優先デバイス順（上が優先）'
+$priorityLabel.Location = New-Object System.Drawing.Point(540, 22)
+$priorityLabel.AutoSize = $true
+$form.Controls.Add($priorityLabel)
+
+$priorityList = New-Object System.Windows.Forms.ListBox
+$priorityList.Location = New-Object System.Drawing.Point(540, 44)
+$priorityList.Size = New-Object System.Drawing.Size(230, 160)
+$priorityList.IntegralHeight = $false
+$form.Controls.Add($priorityList)
+
+$priorityAddButton = New-Object System.Windows.Forms.Button
+$priorityAddButton.Text = '候補に追加'
+$priorityAddButton.Location = New-Object System.Drawing.Point(540, 212)
+$priorityAddButton.Size = New-Object System.Drawing.Size(110, 28)
+$form.Controls.Add($priorityAddButton)
+
+$priorityRemoveButton = New-Object System.Windows.Forms.Button
+$priorityRemoveButton.Text = '候補から削除'
+$priorityRemoveButton.Location = New-Object System.Drawing.Point(660, 212)
+$priorityRemoveButton.Size = New-Object System.Drawing.Size(110, 28)
+$form.Controls.Add($priorityRemoveButton)
+
+$priorityUpButton = New-Object System.Windows.Forms.Button
+$priorityUpButton.Text = '上へ'
+$priorityUpButton.Location = New-Object System.Drawing.Point(540, 246)
+$priorityUpButton.Size = New-Object System.Drawing.Size(110, 28)
+$form.Controls.Add($priorityUpButton)
+
+$priorityDownButton = New-Object System.Windows.Forms.Button
+$priorityDownButton.Text = '下へ'
+$priorityDownButton.Location = New-Object System.Drawing.Point(660, 246)
+$priorityDownButton.Size = New-Object System.Drawing.Size(110, 28)
+$form.Controls.Add($priorityDownButton)
+
+$priorityHint = New-Object System.Windows.Forms.Label
+$priorityHint.Location = New-Object System.Drawing.Point(540, 280)
+$priorityHint.Size = New-Object System.Drawing.Size(230, 40)
+$priorityHint.Text = '「監視ルールに登録」でこの順序を保存します。'
+$form.Controls.Add($priorityHint)
+
 $script:guiState = @()
 $script:activeDevices = @()
+$script:priorityDevices = @()
 
 function Update-AppIcons {
     param([object[]]$Processes, [object[]]$Applications)
@@ -279,8 +325,45 @@ function Update-SelectedGameStatus {
     if ($game.PreferredDevice) { $status.Text = "優先デバイス: $($game.PreferredDevice)" } else { $status.Text = '設定した優先デバイスは接続されていません。接続中のデバイスを選択してください。' }
 }
 
-# Reads the current mute state for the selected application.
-#
+function Update-PriorityDeviceList {
+    param([string[]]$Devices)
+
+    $script:priorityDevices = @($Devices | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $rows = @(Format-GameAudioPriorityDeviceList -Devices $script:priorityDevices -ActiveDevices $script:activeDevices)
+    $selectedIndex = $priorityList.SelectedIndex
+    $priorityList.Items.Clear()
+    foreach ($row in $rows) { [void]$priorityList.Items.Add($row) }
+    $priorityList.DisplayMember = 'Display'
+    if ($priorityList.Items.Count -gt 0) {
+        if ($selectedIndex -ge 0 -and $selectedIndex -lt $priorityList.Items.Count) {
+            $priorityList.SelectedIndex = $selectedIndex
+        }
+        else {
+            $priorityList.SelectedIndex = 0
+        }
+    }
+    Update-PriorityButtons
+}
+
+function Update-PriorityButtons {
+    $hasSelection = $priorityList.SelectedIndex -ge 0
+    $priorityAddButton.Enabled = $deviceSelector.SelectedIndex -ge 0
+    $priorityRemoveButton.Enabled = $hasSelection
+    $priorityUpButton.Enabled = ($hasSelection -and $priorityList.SelectedIndex -gt 0)
+    $priorityDownButton.Enabled = ($hasSelection -and $priorityList.SelectedIndex -lt ($priorityList.Items.Count - 1))
+}
+
+# Loads the selected application's stored candidate order into the editor.
+function Update-PriorityEditorForSelection {
+    $game = $gameSelector.SelectedItem
+    if ($null -eq $game) {
+        Update-PriorityDeviceList -Devices @()
+        return
+    }
+    Update-PriorityDeviceList -Devices @($game.OutputDevices)
+}
+
+# Reads the current mute state for the selected application.#
 # An application without an audio session is a normal state (it has not played
 # audio yet), so the button is disabled and the reason is shown instead of
 # letting the click fail.
@@ -314,9 +397,9 @@ function Save-GuiSettings {
     catch { $status.Text = "設定の保存に失敗しました: $($_.Exception.Message)" }
 }
 
-$gameSelector.add_SelectedIndexChanged({ Update-SelectedGameStatus })
-$deviceSelector.add_SelectedIndexChanged({ Update-SelectedGameStatus })
-$refreshButton.add_Click({ Update-GameAudioGui; Update-SelectedGameStatus })
+$gameSelector.add_SelectedIndexChanged({ Update-SelectedGameStatus; Update-PriorityEditorForSelection })
+$deviceSelector.add_SelectedIndexChanged({ Update-SelectedGameStatus; Update-PriorityButtons })
+$refreshButton.add_Click({ Update-GameAudioGui; Update-SelectedGameStatus; Update-PriorityEditorForSelection })
 $preferredButton.add_Click({
     try { $request = New-GameAudioApplyRequest -Game $gameSelector.SelectedItem -ActiveDevices $script:activeDevices -UsePreferred; $status.Text = Invoke-GameOutputChange -ProcessName $request.ProcessName -Device $request.Device } catch { $status.Text = "適用に失敗しました: $($_.Exception.Message)" }
 })
@@ -348,17 +431,56 @@ $muteButton.add_Click({
     }
     catch { $status.Text = "ミュートの切り替えに失敗しました: $($_.Exception.Message)" }
 })
+$priorityList.add_SelectedIndexChanged({ Update-PriorityButtons })
+$priorityAddButton.add_Click({
+    $device = [string]$deviceSelector.SelectedItem
+    if ([string]::IsNullOrWhiteSpace($device)) {
+        $status.Text = '追加する出力先を選択してください。'
+        return
+    }
+    $before = @($script:priorityDevices).Count
+    $updated = Add-GameAudioPriorityDevice -Devices $script:priorityDevices -Device $device
+    Update-PriorityDeviceList -Devices $updated
+    if (@($updated).Count -eq $before) {
+        $status.Text = "$device はすでに候補にあります。"
+    }
+    else {
+        $status.Text = "$device を候補に追加しました。"
+    }
+})
+$priorityRemoveButton.add_Click({
+    if ($priorityList.SelectedIndex -lt 0) { return }
+    $device = [string]$priorityList.SelectedItem.Device
+    $updated = Remove-GameAudioPriorityDevice -Devices $script:priorityDevices -Device $device
+    Update-PriorityDeviceList -Devices $updated
+    $status.Text = "$device を候補から削除しました。"
+})
+$priorityUpButton.add_Click({
+    if ($priorityList.SelectedIndex -lt 0) { return }
+    $device = [string]$priorityList.SelectedItem.Device
+    $updated = Move-GameAudioPriorityDeviceUp -Devices $script:priorityDevices -Device $device
+    Update-PriorityDeviceList -Devices $updated
+    $status.Text = "$device の優先度を上げました。"
+})
+$priorityDownButton.add_Click({
+    if ($priorityList.SelectedIndex -lt 0) { return }
+    $device = [string]$priorityList.SelectedItem.Device
+    $updated = Move-GameAudioPriorityDeviceDown -Devices $script:priorityDevices -Device $device
+    Update-PriorityDeviceList -Devices $updated
+    $status.Text = "$device の優先度を下げました。"
+})
 $registerRuleButton.add_Click({
     $game = $gameSelector.SelectedItem
     if ($null -eq $game) { return }
     try {
         $request = ConvertTo-GameAudioRuleRequest -Game $game -SelectedDevice ([string]$deviceSelector.SelectedItem)
-        $deviceArgument = @()
-        if (-not [string]::IsNullOrWhiteSpace($request.Device)) { $deviceArgument = @($request.Device) }
-        Set-GameAudioRule -Path $ConfigPath -ProcessName $request.ProcessName -Name $request.Name -OutputDevices $deviceArgument
-        $status.Text = "$($request.Name) を監視ルール ($ConfigPath) に保存しました。"
+        # The editor list is authoritative; it may have been reordered or trimmed.
+        $devices = Resolve-GameAudioPrioritySaveList -Devices $script:priorityDevices -SelectedDevice $request.Device
+        Set-GameAudioRule -Path $ConfigPath -ProcessName $request.ProcessName -Name $request.Name -OutputDevices $devices -ReplaceDevices
+        $status.Text = "$($request.Name) を監視ルール ($ConfigPath) に保存しました。優先順: $($devices -join ' > ')"
         Update-GameAudioGui
         Update-SelectedGameStatus
+        Update-PriorityEditorForSelection
     }
     catch { $status.Text = "監視ルールの保存に失敗しました: $($_.Exception.Message)" }
 })

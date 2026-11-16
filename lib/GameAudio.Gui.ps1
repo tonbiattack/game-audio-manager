@@ -185,3 +185,52 @@ function Format-GameAudioMuteButtonText {
     if ($State.IsMuted) { return 'ミュートを解除' }
     return 'ミュートする'
 }
+
+# Describes the ordered candidate list for the priority editor.
+#
+# The GUI shows the list with its priority so the order is visible, not just the
+# set of devices. A device that is currently disconnected is still a valid
+# candidate: it is kept so the rule survives unplugging a headset.
+function Format-GameAudioPriorityDeviceList {
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Devices,
+        [AllowEmptyCollection()][string[]]$ActiveDevices = @()
+    )
+
+    $current = @($Devices | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $active = @($ActiveDevices)
+    $rows = @()
+    for ($i = 0; $i -lt $current.Count; $i++) {
+        $device = $current[$i]
+        $isActive = $false
+        foreach ($candidate in $active) {
+            if ([string]::Equals($candidate, $device, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $isActive = $true
+                break
+            }
+        }
+        $rows += [PSCustomObject]@{
+            Priority = $i + 1
+            Device = $device
+            IsActive = $isActive
+            Display = '{0}. {1}{2}' -f ($i + 1), $device, $(if ($isActive) { '' } else { ' (未接続)' })
+        }
+    }
+    return $rows
+}
+
+# Builds the device list to save from the editor state.
+#
+# The list is authoritative when it has entries. When it is empty, the selected
+# device is used so the original "pick a device and register" flow still works.
+function Resolve-GameAudioPrioritySaveList {
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Devices,
+        [string]$SelectedDevice
+    )
+
+    $current = @($Devices | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($current.Count -gt 0) { return [string[]]$current }
+    if (-not [string]::IsNullOrWhiteSpace($SelectedDevice)) { return [string[]]@($SelectedDevice.Trim()) }
+    throw 'Add at least one output device before saving the rule.'
+}

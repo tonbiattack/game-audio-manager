@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 
 $library = Join-Path $PSScriptRoot '..\lib\GameAudio.Config.ps1'
 $example = Join-Path $PSScriptRoot '..\config\games.example.json'
@@ -89,6 +89,63 @@ try {
 }
 finally {
     Remove-Item -LiteralPath $rulesDirectory -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+# --- priority device list editing ---
+$devices = @('Device A', 'Device B')
+$devices = Add-GameAudioPriorityDevice -Devices $devices -Device 'Device C'
+Assert-Equal ($devices -join ',') 'Device A,Device B,Device C' 'Adding must append to the end of the candidate list.'
+
+$devices = Add-GameAudioPriorityDevice -Devices $devices -Device 'device a'
+Assert-Equal ($devices -join ',') 'Device A,Device B,Device C' 'Adding an existing device must not duplicate it.'
+Assert-Equal $devices[0] 'Device A' 'Adding an existing device must keep its original position and spelling.'
+
+$devices = Add-GameAudioPriorityDevice -Devices $devices -Device '  Device D  '
+Assert-Equal $devices[-1] 'Device D' 'Adding must trim surrounding whitespace.'
+
+$devices = Remove-GameAudioPriorityDevice -Devices $devices -Device 'device b'
+Assert-Equal ($devices -join ',') 'Device A,Device C,Device D' 'Removing must match case-insensitively.'
+
+$devices = Remove-GameAudioPriorityDevice -Devices $devices -Device 'Missing'
+Assert-Equal ($devices -join ',') 'Device A,Device C,Device D' 'Removing an absent device must be a no-op.'
+
+$ordered = @('A', 'B', 'C')
+$ordered = Move-GameAudioPriorityDeviceUp -Devices $ordered -Device 'C'
+Assert-Equal ($ordered -join ',') 'A,C,B' 'Moving up must swap with the previous entry.'
+
+$ordered = Move-GameAudioPriorityDeviceDown -Devices $ordered -Device 'A'
+Assert-Equal ($ordered -join ',') 'C,A,B' 'Moving down must swap with the next entry.'
+
+$ordered = Move-GameAudioPriorityDeviceUp -Devices $ordered -Device 'C'
+Assert-Equal ($ordered -join ',') 'C,A,B' 'Moving the first entry up must be a no-op.'
+
+$ordered = Move-GameAudioPriorityDeviceDown -Devices $ordered -Device 'B'
+Assert-Equal ($ordered -join ',') 'C,A,B' 'Moving the last entry down must be a no-op.'
+
+$ordered = Move-GameAudioPriorityDeviceUp -Devices $ordered -Device 'Missing'
+Assert-Equal ($ordered -join ',') 'C,A,B' 'Moving an absent device must be a no-op.'
+
+# --- saving an edited order replaces the stored list ---
+$priorityDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("game-audio-priority-{0}" -f [guid]::NewGuid())
+try {
+    $null = New-Item -ItemType Directory -Path $priorityDirectory -Force
+    $priorityPath = Join-Path $priorityDirectory 'games.json'
+
+    $null = Set-GameAudioRule -Path $priorityPath -ProcessName 'GameX' -Name 'Game X' -OutputDevices @('A', 'B', 'C')
+    Assert-Equal ((@(Get-GameConfiguration -Path $priorityPath)[0].outputDevices) -join ',') 'A,B,C' 'The initial rule must store the given order.'
+
+    # The legacy merge behaviour must be preserved for callers that do not opt in.
+    $null = Set-GameAudioRule -Path $priorityPath -ProcessName 'GameX' -OutputDevices @('C')
+    Assert-Equal ((@(Get-GameConfiguration -Path $priorityPath)[0].outputDevices) -join ',') 'C,A,B' 'Without -ReplaceDevices the selected device must move to the front and existing candidates must be kept.'
+
+    # The GUI saves the edited list as-is.
+    $null = Set-GameAudioRule -Path $priorityPath -ProcessName 'GameX' -OutputDevices @('B', 'A') -ReplaceDevices
+    Assert-Equal ((@(Get-GameConfiguration -Path $priorityPath)[0].outputDevices) -join ',') 'B,A' 'With -ReplaceDevices the stored list must be replaced by the edited order.'
+
+    Assert-Throws { Set-GameAudioRule -Path $priorityPath -ProcessName 'GameX' -OutputDevices @() -ReplaceDevices } 'at least one output device' 'Replacing with an empty list must be rejected.'
+}
+finally {
+    Remove-Item -LiteralPath $priorityDirectory -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host 'PASS: game-audio-config tests'

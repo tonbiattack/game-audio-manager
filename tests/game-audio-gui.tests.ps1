@@ -154,4 +154,39 @@ if ($guiSource -notmatch [regex]::Escape('$muteButton.Enabled = $script:muteStat
     throw 'The GUI must disable the mute button when no audio session exists.'
 }
 
+# --- priority device editor ---
+$rows = @(Format-GameAudioPriorityDeviceList -Devices @('Device A', 'Device B') -ActiveDevices @('Device A'))
+Assert-Equal $rows.Count 2 'Every candidate must be listed.'
+Assert-Equal $rows[0].Priority 1 'The first candidate must be priority 1.'
+Assert-Equal $rows[1].Priority 2 'The second candidate must be priority 2.'
+Assert-Equal $rows[0].Device 'Device A' 'The row must carry the device name.'
+Assert-Equal $rows[0].IsActive $true 'A connected device must be marked active.'
+Assert-Equal $rows[1].IsActive $false 'A disconnected device must not be marked active.'
+Assert-True ($rows[0].Display -match '^1\. Device A') 'The display text must show the priority.'
+Assert-True ($rows[1].Display -match '未接続') 'A disconnected candidate must be labelled so the order is still editable.'
+
+$emptyRows = @(Format-GameAudioPriorityDeviceList -Devices @() -ActiveDevices @('Device A'))
+Assert-Equal $emptyRows.Count 0 'An empty candidate list must produce no rows.'
+
+# The editor list is authoritative when it has entries; otherwise the selected
+# device is used so the original "pick a device and register" flow still works.
+Assert-Equal ((Resolve-GameAudioPrioritySaveList -Devices @('X', 'Y') -SelectedDevice 'Z') -join ',') 'X,Y' 'The edited list must win over the selected device.'
+Assert-Equal ((Resolve-GameAudioPrioritySaveList -Devices @() -SelectedDevice 'Z') -join ',') 'Z' 'An empty list must fall back to the selected device.'
+Assert-Equal ((Resolve-GameAudioPrioritySaveList -Devices @() -SelectedDevice '  Z  ') -join ',') 'Z' 'The fallback must trim whitespace.'
+Assert-Throws { Resolve-GameAudioPrioritySaveList -Devices @() -SelectedDevice '' } 'Add at least one output device' 'Saving with no devices must be rejected.'
+
+# The GUI must wire the editor controls and save through -ReplaceDevices.
+$guiSource = Get-Content -LiteralPath $guiScript -Raw
+foreach ($control in @('$priorityList', '$priorityAddButton', '$priorityRemoveButton', '$priorityUpButton', '$priorityDownButton')) {
+    if ($guiSource -notmatch [regex]::Escape($control)) {
+        throw "The GUI must define the priority editor control $control."
+    }
+}
+if ($guiSource -notmatch [regex]::Escape('-ReplaceDevices')) {
+    throw 'The GUI must save the edited order with -ReplaceDevices.'
+}
+if ($guiSource -notmatch [regex]::Escape('Resolve-GameAudioPrioritySaveList')) {
+    throw 'The GUI must resolve the save list through the shared helper.'
+}
+
 Write-Host 'PASS: game-audio-gui tests'
