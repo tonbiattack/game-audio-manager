@@ -6,7 +6,7 @@
         Title="Game Audio Manager"
         Icon="Assets/app.ico"
         Height="720" Width="1200"
-        MinHeight="520" MinWidth="920"
+        MinHeight="560" MinWidth="1000"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display"
         Background="{DynamicResource AppBackgroundBrush}"
@@ -24,44 +24,69 @@
         </Grid.ColumnDefinitions>
 
         <!-- header -->
-        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,0,0,14">
-            <TextBlock Text="{Binding [Header], Source={x:Static app:Localization.Instance}}"
+        <!--
+            Header is split over two rows and the secondary controls live in a WrapPanel:
+            a single horizontal StackPanel overflowed and clipped the title at narrow
+            widths.
+        -->
+        <Grid Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0"
+                       Text="{Binding [Header], Source={x:Static app:Localization.Instance}}"
                        FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <TextBox x:Name="FilterBox" Width="220" Height="30" Margin="20,0,0,0"
-                     VerticalContentAlignment="Center"
-                     Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-                     ToolTip="{Binding [Search], Source={x:Static app:Localization.Instance}}" />
-            <TextBlock Text="{Binding [Search], Source={x:Static app:Localization.Instance}}"
-                       Margin="6,0,0,0" VerticalAlignment="Center"
-                       Foreground="{DynamicResource AppSubtleBrush}" />
-            <CheckBox Content="{Binding [ShowNotRunning], Source={x:Static app:Localization.Instance}}"
-                      Margin="18,0,0,0" VerticalAlignment="Center"
-                      IsChecked="{Binding ShowNotRunning, Mode=TwoWay}" />
-            <ui:Button x:Name="RefreshButton" Margin="18,0,0,0" Height="30" MinWidth="84"
-                       Content="{Binding [Refresh], Source={x:Static app:Localization.Instance}}"
-                       Click="OnRefresh" />
-            <ui:Button x:Name="WatcherButton" Margin="8,0,0,0" Height="30" MinWidth="140"
-                       Click="OnToggleWatcher" />
 
-            <TextBlock Text="{Binding [Theme], Source={x:Static app:Localization.Instance}}"
-                       Margin="18,0,6,0" VerticalAlignment="Center"
-                       Foreground="{DynamicResource AppSubtleBrush}" />
-            <ComboBox x:Name="ThemeCombo" Width="120" Height="30" Margin="0"
-                      VerticalContentAlignment="Center"
-                      SelectionChanged="OnThemeChanged" />
+            <DockPanel Grid.Row="0" Grid.Column="1" Margin="20,0,0,0" LastChildFill="True">
+                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="6,0,0,0"
+                           Foreground="{DynamicResource AppSubtleBrush}"
+                           Text="{Binding [Search], Source={x:Static app:Localization.Instance}}" />
+                <TextBox x:Name="FilterBox" MinWidth="120" Height="30"
+                         VerticalContentAlignment="Center"
+                         Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{Binding [Search], Source={x:Static app:Localization.Instance}}" />
+            </DockPanel>
 
-            <TextBlock Text="{Binding [Language], Source={x:Static app:Localization.Instance}}"
-                       Margin="16,0,6,0" VerticalAlignment="Center"
-                       Foreground="{DynamicResource AppSubtleBrush}" />
-            <ComboBox x:Name="LanguageCombo" Width="120" Height="30"
-                      VerticalContentAlignment="Center"
-                      SelectionChanged="OnLanguageChanged" />
+            <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Margin="16,0,0,0">
+                <CheckBox VerticalAlignment="Center"
+                          Content="{Binding [ShowNotRunning], Source={x:Static app:Localization.Instance}}"
+                          IsChecked="{Binding ShowNotRunning, Mode=TwoWay}" />
+                <ui:Button x:Name="RefreshButton" Margin="14,0,0,0" Height="30" MinWidth="84"
+                           Content="{Binding [Refresh], Source={x:Static app:Localization.Instance}}"
+                           Click="OnRefresh" />
+                <ui:Button x:Name="WatcherButton" Margin="8,0,0,0" Height="30" MinWidth="150"
+                           Click="OnToggleWatcher" />
+            </StackPanel>
 
-            <ui:Button Content="{Binding [ImportLegacy], Source={x:Static app:Localization.Instance}}"
-                       Margin="12,0,0,0" Height="30" Click="OnImportLegacy" />
-            <ui:Button Content="{Binding [Help], Source={x:Static app:Localization.Instance}}"
-                       Margin="8,0,0,0" Height="30" MinWidth="80" Click="OnOpenHelp" />
-        </StackPanel>
+            <!-- Secondary controls wrap instead of clipping. -->
+            <WrapPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,10,0,0">
+                <TextBlock VerticalAlignment="Center" Margin="0,0,6,0"
+                           Foreground="{DynamicResource AppSubtleBrush}"
+                           Text="{Binding [Theme], Source={x:Static app:Localization.Instance}}" />
+                <ComboBox x:Name="ThemeCombo" Width="120" Height="30"
+                          VerticalContentAlignment="Center"
+                          SelectionChanged="OnThemeChanged" />
+                <TextBlock VerticalAlignment="Center" Margin="16,0,6,0"
+                           Foreground="{DynamicResource AppSubtleBrush}"
+                           Text="{Binding [Language], Source={x:Static app:Localization.Instance}}" />
+                <ComboBox x:Name="LanguageCombo" Width="120" Height="30"
+                          VerticalContentAlignment="Center"
+                          SelectionChanged="OnLanguageChanged" />
+                <ui:Button Margin="16,0,0,0" Height="30" MinWidth="140"
+                           Content="{Binding [ImportLegacy], Source={x:Static app:Localization.Instance}}"
+                           Click="OnImportLegacy" />
+                <ui:Button Margin="8,0,0,0" Height="30" MinWidth="80"
+                           Content="{Binding [Help], Source={x:Static app:Localization.Instance}}"
+                           Click="OnOpenHelp" />
+            </WrapPanel>
+        </Grid>
 
         <!-- list -->
         <ListView Grid.Row="1" Grid.Column="0"
@@ -118,7 +143,7 @@
         </ListView>
 
         <!-- priority editor -->
-        <Border Grid.Row="1" Grid.Column="1" Width="300" Margin="14,0,0,0" Padding="12"
+        <Border Grid.Row="1" Grid.Column="1" Width="280" Margin="14,0,0,0" Padding="12"
                 BorderThickness="1" CornerRadius="6"
                 Background="{DynamicResource AppPanelBrush}"
                 BorderBrush="{DynamicResource AppBorderBrush}">
@@ -166,6 +191,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -192,10 +218,13 @@
                     <CheckBox Margin="20,0,0,0" VerticalAlignment="Center"
                               Content="{Binding [AutoStartWithWindows], Source={x:Static app:Localization.Instance}}"
                               IsChecked="{Binding AutoStartWithWindows, Mode=TwoWay}" />
-                    <TextBlock Margin="20,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"
-                               Foreground="{DynamicResource AppSubtleBrush}"
-                               Text="{Binding [RoutingHint], Source={x:Static app:Localization.Instance}}" />
                 </StackPanel>
+
+                <!-- Own row so the hint wraps instead of being clipped at narrow widths. -->
+                <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,10,0,0"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource AppSubtleBrush}"
+                           Text="{Binding [RoutingHint], Source={x:Static app:Localization.Instance}}" />
             </Grid>
         </Border>
 
@@ -204,4 +233,5 @@
                    TextWrapping="Wrap" MinHeight="36" VerticalAlignment="Top" />
     </Grid>
 </Window>
+
 
