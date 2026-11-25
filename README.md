@@ -16,6 +16,10 @@ Windows 上でアプリ・ゲームごとの音声出力先とミュートを切
 
 ![English UI](docs/images/dotnet-app-en.png)
 
+操作方法はアプリ内の「使い方」（`F1`）で確認できます。
+
+![使い方](docs/images/dotnet-help.png)
+
 ## 入手する（デスクトップアプリ版・推奨）
 
 1. [Releases](https://github.com/tonbiattack/game-audio-manager/releases) から最新の `game-audio-manager-<version>-win-x64.zip` をダウンロードします
@@ -498,6 +502,7 @@ docs/                           補足ドキュメント
 音声出力の制御には NirSoft の SoundVolumeCommandLine を利用しています。
 `vendor/svcl/` にある `svcl.exe`、`svcl.chm`、`readme.txt` は同ツールの未改変の 64-bit 配布物であり、
 MIT License の対象外です。配布条件と著作権表記は [Third-party notices](THIRD_PARTY_NOTICES.md) を参照してください。
+
 
 
 
