@@ -40,7 +40,7 @@ namespace GameAudioManager.Core.Routing;
 /// when the process appears.
 /// </para>
 /// </remarks>
-public sealed class AudioPolicyConfigRoutingService : IAppRoutingService
+public sealed class AudioPolicyConfigRoutingService : IAppRoutingService, IRoutingCapability
 {
     private const string ActivatableClassId = "Windows.Media.Internal.AudioPolicyConfig";
 
@@ -58,13 +58,61 @@ public sealed class AudioPolicyConfigRoutingService : IAppRoutingService
 
     private readonly IAudioDeviceService _deviceService;
 
+    /// <summary>
+    /// Creates the activation factory. Injectable so the "unsupported build" and
+    /// "call failed" paths can be tested without a real Windows audio stack.
+    /// </summary>
+    private readonly Func<(bool Ok, IntPtr Factory, string? Error)> _factoryProvider;
+
     public AudioPolicyConfigRoutingService(IAudioDeviceService deviceService)
+        : this(deviceService, CreateFactoryOrFail)
     {
-        _deviceService = deviceService ?? throw new ArgumentNullException(nameof(deviceService));
     }
 
-    /// <summary>True when the activation factory can be created on this machine.</summary>
+    internal AudioPolicyConfigRoutingService(
+        IAudioDeviceService deviceService,
+        Func<(bool Ok, IntPtr Factory, string? Error)> factoryProvider)
+    {
+        _deviceService = deviceService ?? throw new ArgumentNullException(nameof(deviceService));
+        _factoryProvider = factoryProvider ?? throw new ArgumentNullException(nameof(factoryProvider));
+    }
+
+    /// <summary>
+    /// True when the activation factory can be created on this machine.
+    /// </summary>
+    /// <remarks>
+    /// When false, routing must be reported as unavailable rather than failing
+    /// silently. Mute and device enumeration are independent of this API and keep
+    /// working, which is why this is a query rather than a constructor failure.
+    /// </remarks>
     public static bool IsSupported => TryCreateFactory(out var factory, out _) && factory != IntPtr.Zero && ReleaseAndCheck(factory);
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Probes the configured provider so the reported capability matches what an
+    /// actual call would do (the provider is injectable for tests).
+    /// </remarks>
+    public bool IsAvailable
+    {
+        get
+        {
+            var created = _factoryProvider();
+            if (!created.Ok || created.Factory == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            Release(created.Factory);
+            return true;
+        }
+    }
+
+    /// <inheritdoc />
+    public string UnavailableMessage => UnsupportedMessage;
+
+    /// <summary>Message shown to the user when routing is unavailable on this build.</summary>
+    public const string UnsupportedMessage =
+        "この Windows ビルドではアプリ別の出力先変更を利用できません（ミュートは利用できます）。";
 
     public RoutingResult SetPreferredDevice(string executableName, string deviceId)
     {
@@ -116,11 +164,18 @@ public sealed class AudioPolicyConfigRoutingService : IAppRoutingService
     {
         var exe = NormalizeExecutable(executableName);
         var pids = FindProcessIds(exe);
-        if (pids.Count == 0 || !TryCreateFactory(out var factory, out _))
+        if (pids.Count == 0)
         {
             return null;
         }
 
+        var created = _factoryProvider();
+        if (!created.Ok || created.Factory == IntPtr.Zero)
+        {
+            return null;
+        }
+
+        var factory = created.Factory;
         try
         {
             foreach (var pid in pids)
@@ -131,6 +186,8 @@ public sealed class AudioPolicyConfigRoutingService : IAppRoutingService
                 }
             }
 
+            // The read API is known to return an empty value on some builds even after a
+            // successful write, so "unknown" is reported as null rather than guessed.
             return null;
         }
         finally
@@ -139,13 +196,16 @@ public sealed class AudioPolicyConfigRoutingService : IAppRoutingService
         }
     }
 
-    private static RoutingResult ApplyToProcesses(string exe, IReadOnlyList<uint> pids, string? deviceId, string successMessage)
+    private RoutingResult ApplyToProcesses(string exe, IReadOnlyList<uint> pids, string? deviceId, string successMessage)
     {
-        if (!TryCreateFactory(out var factory, out var error))
+        var created = _factoryProvider();
+        if (!created.Ok || created.Factory == IntPtr.Zero)
         {
-            return RoutingResult.NotRecorded(error!);
+            return RoutingResult.NotRecorded(
+                UnsupportedMessage + (string.IsNullOrWhiteSpace(created.Error) ? string.Empty : " " + created.Error));
         }
 
+        var factory = created.Factory;
         try
         {
             var applied = 0;
@@ -315,6 +375,13 @@ public sealed class AudioPolicyConfigRoutingService : IAppRoutingService
         return Marshal.ReadIntPtr(vtable, (FirstMethodSlot + methodIndex) * IntPtr.Size);
     }
 
+    private static (bool Ok, IntPtr Factory, string? Error) CreateFactoryOrFail()
+    {
+        return TryCreateFactory(out var factory, out var error)
+            ? (true, factory, null)
+            : (false, IntPtr.Zero, error);
+    }
+
     internal static bool TryCreateFactory(out IntPtr factory, out string? error)
     {
         factory = IntPtr.Zero;
@@ -416,6 +483,9 @@ public sealed class AudioPolicyConfigRoutingService : IAppRoutingService
     /// <summary>Unused; kept so the EFail constant stays referenced by analyzers.</summary>
     internal static int GenericFailure => EFail;
 }
+
+
+
 
 
 

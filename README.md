@@ -51,8 +51,53 @@ dotnet test tests/GameAudioManager.Core.Tests/GameAudioManager.Core.Tests.csproj
 ./scripts/publish.ps1 -Version 0.2.0        # 自己完結 EXE を artifacts/win-x64 に生成
 ```
 
-技術検証の記録（音声ポリシー API の使い方、MSIX/EXE/MSI の比較、決定事項）は
-[docs/dotnet-migration.md](docs/dotnet-migration.md) にあります。
+技術検証の記録:
+
+- [docs/dotnet-migration.md](docs/dotnet-migration.md) — 移行の経緯、MSIX/EXE/MSI の比較、決定事項
+- [docs/audio-policy-api.md](docs/audio-policy-api.md) — 非公開音声 API の検証マトリクスと既知の制限
+
+## PowerShell 版から移行する
+
+旧 PowerShell 版とデスクトップアプリ版は**設定ファイルが別**です。混在させないでください。
+
+### 手順
+
+1. **旧版の常駐を止める**（必須）
+
+   両方を同時に動かすと、同じアプリの出力先を奪い合います。
+
+   ```powershell
+   # 旧版の監視プロセスを停止する
+   Get-Process powershell | Where-Object {
+     $_.CommandLine -like '*watch-game-output.ps1*' -or $_.CommandLine -like '*watch-shiren-output.ps1*'
+   } | Stop-Process
+
+   # スタートアップ登録を解除する（登録していた場合）
+   .\Install-GameAudioManagerStartup.ps1 -Remove
+   ```
+
+2. **デスクトップアプリ版を起動**し、一覧から対象アプリを選び直します。
+
+   - 出力先: ドロップダウンから選んで「適用」
+   - 優先順位: 右側の「優先デバイス順」で候補を追加・並べ替え
+   - 自動適用: 行の「自動」にチェック
+   - ログオン時自動起動: 必要ならチェック
+
+3. 旧版が不要になったら、`config/games.json` などを含む旧フォルダを削除します。
+
+### 設定の対応
+
+| 旧 `config/games.json` | 新 `settings.json` |
+| --- | --- |
+| `processName` | `rules[].processName` |
+| `name` | `rules[].name` |
+| `outputDevices`（デバイス**名**） | `rules[].outputDeviceIds`（デバイス **ID**） |
+| `enabled` | `rules[].enabled` |
+| — | `rules[].autoApply`（新規） |
+
+デバイス名は変更・重複しうるため、新版は ID で保存します。
+旧設定の `LegacyImporter` による自動取り込みは Core に実装済みですが、UI からは未提供です
+（現状は画面から選び直すのが確実です）。
 
 ---
 
