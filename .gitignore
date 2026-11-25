@@ -2,3 +2,19 @@ config/games.json
 config/settings.json
 config/watcher-status.json
 .superpowers/
+
+# .NET build output
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.binlog
+
+# Published artifacts
+publish/
+artifacts/
+*.msix
+*.msixupload
+*.appx
