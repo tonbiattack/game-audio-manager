@@ -113,7 +113,7 @@ public partial class App : System.Windows.Application
     {
         _trayIcon = new NotifyIcon
         {
-            Icon = System.Drawing.SystemIcons.Application,
+            Icon = LoadTrayIcon(),
             Visible = true,
             Text = "Game Audio Manager",
         };
@@ -132,6 +132,29 @@ public partial class App : System.Windows.Application
         _trayIcon.DoubleClick += (_, _) => ShowMainWindow();
     }
 
+    /// <summary>Loads the app icon from the executable for the tray.</summary>
+    private static System.Drawing.Icon LoadTrayIcon()
+    {
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(exe))
+            {
+                var extracted = System.Drawing.Icon.ExtractAssociatedIcon(exe);
+                if (extracted is not null)
+                {
+                    return extracted;
+                }
+            }
+        }
+        catch (ArgumentException)
+        {
+            // Fall back to the system icon.
+        }
+
+        return System.Drawing.SystemIcons.Application;
+    }
+
     private void Quit()
     {
         IsExiting = true;
@@ -140,5 +163,6 @@ public partial class App : System.Windows.Application
         Shutdown();
     }
 }
+
 
 

@@ -61,6 +61,51 @@ Windows の仕様により、**出力先の変更は「次にそのアプリが�
 再生中の音は自動では移動しません。アプリを再起動するか、ゲーム内で音声を出し直すと切り替わります。
 「既定の出力へ戻す」も同じです。
 
+## ローカルにインストールする（Windows 検索から起動）
+
+GitHub Releases を使わずに、手元のビルドをそのまま導入できます。**管理者権限は不要**です。
+
+```powershell
+# ビルド → 配置 → スタートメニュー登録 をまとめて行う
+./scripts/install-local.ps1
+```
+
+- 配置先: `%LOCALAPPDATA%\Programs\GameAudioManager\`
+- ショートカット: `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Game Audio Manager.lnk`
+- Windows キーを押して「Game Audio Manager」と入力すると起動できます
+- **検索インデックスの反映には数分かかることがあります**。すぐ出ない場合はスタートメニューの
+  「すべてのアプリ」から起動してください
+- 再実行してもショートカットは重複しません。実行中のアプリは停止してから置き換えます
+
+ビルドをやり直さずに配置だけ更新する場合:
+
+```powershell
+./scripts/publish.ps1 -Version 0.2.0
+./scripts/install-local.ps1 -SkipPublish
+```
+
+### 更新
+
+新しいビルドを取得したら、同じコマンドをもう一度実行します。設定は保持されます。
+
+```powershell
+./scripts/install-local.ps1
+```
+
+### アンインストール
+
+```powershell
+# ショートカットと配置物を削除（設定は保持）
+./scripts/install-local.ps1 -Uninstall
+
+# 設定も削除する場合
+./scripts/install-local.ps1 -Uninstall -PurgeSettings
+```
+
+- 削除するのは**このアプリのショートカットと配置物だけ**です
+- 設定（`%LOCALAPPDATA%\GameAudioManager`）は `-PurgeSettings` を指定しない限り残します
+- 「ログオン時に自動起動」を有効にしていた場合は、**先にアプリ上でオフにしてから**アンインストールしてください
+
 ## 開発
 
 ```powershell
@@ -444,5 +489,6 @@ docs/                           補足ドキュメント
 音声出力の制御には NirSoft の SoundVolumeCommandLine を利用しています。
 `vendor/svcl/` にある `svcl.exe`、`svcl.chm`、`readme.txt` は同ツールの未改変の 64-bit 配布物であり、
 MIT License の対象外です。配布条件と著作権表記は [Third-party notices](THIRD_PARTY_NOTICES.md) を参照してください。
+
 
 

@@ -9,6 +9,7 @@
     <!-- WinForms is only used for the tray icon (NotifyIcon). -->
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <AssemblyName>GameAudioManager</AssemblyName>
     <RootNamespace>GameAudioManager.App</RootNamespace>
     <Platforms>x64</Platforms>
@@ -22,6 +23,13 @@
     <ProjectReference Include="..\GameAudioManager.Core\GameAudioManager.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Window icon is loaded through the BAML resource system, so it must be a
+         Resource with an explicit logical name. -->
+    <Resource Include="Assets\app.ico" LogicalName="assets/app.ico" />
+  </ItemGroup>
+
 </Project>
+
 
 
