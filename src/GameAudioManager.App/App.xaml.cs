@@ -25,6 +25,8 @@ public partial class App : System.Windows.Application
     private MainWindow? _window;
     private DeviceChangeWatcher? _deviceWatcher;
     private Microsoft.Win32.PowerModeChangedEventHandler? _powerModeHandler;
+    private Microsoft.Win32.UserPreferenceChangedEventHandler? _userPreferenceHandler;
+    private string _lastTheme = GameAudioManager.Core.Configuration.ThemeNames.System;
 
     /// <summary>True once the user chose to quit, so the window may really close.</summary>
     public static bool IsExiting { get; private set; }
@@ -49,10 +51,15 @@ public partial class App : System.Windows.Application
         var routing = new AudioPolicyConfigRoutingService(devices);
         var store = new SettingsStore(SettingsStore.GetDefaultPath());
 
-        // Apply the saved theme before the first frame so there is no flash of the
-        // wrong palette.
-        ThemeManager.Apply(store.Load().Theme);
+        // Apply the saved language and theme before the first frame so there is no
+        // flash of the wrong palette or the wrong language.
+        var initialSettings = store.Load();
+        Localization.Instance.Language = string.IsNullOrWhiteSpace(initialSettings.Language)
+            ? Localization.DetectSystemLanguage()
+            : Localization.Instance.Resolve(initialSettings.Language);
+        ThemeManager.Apply(initialSettings.Theme);
 
+        _lastTheme = initialSettings.Theme;
         var viewModel = new MainViewModel(devices, sessions, routing, store);
         _window = new MainWindow(viewModel);
         MainWindow = _window;
@@ -89,6 +96,21 @@ public partial class App : System.Windows.Application
             }
         };
         Microsoft.Win32.SystemEvents.PowerModeChanged += _powerModeHandler;
+
+        // Re-apply the palette when Windows switches between light and dark, but only
+        // when the user asked to follow the system theme.
+        _userPreferenceHandler = (_, e) =>
+        {
+            if (e.Category == Microsoft.Win32.UserPreferenceCategory.General
+                && string.Equals(
+                    GameAudioManager.Core.Configuration.ThemeNames.Normalize(_lastTheme),
+                    GameAudioManager.Core.Configuration.ThemeNames.System,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                ThemeManager.Apply(_lastTheme);
+            }
+        };
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged += _userPreferenceHandler;
     }
 
     /// <summary>Brings the window back from the tray.</summary>
@@ -119,7 +141,7 @@ public partial class App : System.Windows.Application
         {
             Icon = LoadTrayIcon(),
             Visible = true,
-            Text = "Game Audio Manager",
+            Text = Localization.Instance["TrayTooltip"],
         };
 
         var menu = new ContextMenuStrip();
@@ -167,6 +189,7 @@ public partial class App : System.Windows.Application
         Shutdown();
     }
 }
+
 
 
 

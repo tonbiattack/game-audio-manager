@@ -172,25 +172,46 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public bool WatcherRunning => _watcher.IsRunning;
 
-    /// <summary>True when the dark palette is active.</summary>
-    public bool IsDarkTheme
+    /// <summary>Applies and persists a theme choice ("light", "dark" or "system").</summary>
+    public void SetTheme(string theme)
     {
-        get => string.Equals(Settings.Theme, ThemeNames.Dark, StringComparison.OrdinalIgnoreCase);
-        set
+        var normalized = ThemeNames.Normalize(theme);
+        if (string.Equals(Settings.Theme, normalized, StringComparison.OrdinalIgnoreCase))
         {
-            var theme = value ? ThemeNames.Dark : ThemeNames.Light;
-            if (string.Equals(Settings.Theme, theme, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            Settings.Theme = theme;
-            ThemeManager.Apply(theme);
-            SaveSettings();
-            OnPropertyChanged(nameof(IsDarkTheme));
-            StatusMessage = value ? "ダークテーマに切り替えました。" : "ライトテーマに切り替えました。";
+            return;
         }
+
+        Settings.Theme = normalized;
+        ThemeManager.Apply(normalized);
+        SaveSettings();
+        StatusMessage = normalized switch
+        {
+            ThemeNames.Dark => Localization.Instance["StatusThemeDark"],
+            ThemeNames.Light => Localization.Instance["StatusThemeLight"],
+            _ => Localization.Instance["StatusThemeSystem"],
+        };
     }
+
+    /// <summary>True when the UI is currently Japanese.</summary>
+    public bool IsJapanese => Localization.Instance.IsJapanese;
+
+    /// <summary>Switches the UI language and persists it.</summary>
+    public void SetLanguage(string language)
+    {
+        var normalized = string.Equals(language, Localization.Japanese, StringComparison.OrdinalIgnoreCase)
+            ? Localization.Japanese
+            : Localization.English;
+
+        Settings.Language = normalized;
+        Localization.Instance.Language = normalized;
+        SaveSettings();
+        OnPropertyChanged(nameof(IsJapanese));
+        StatusMessage = Localization.Instance["StatusLanguageChanged"];
+        RefreshFromWatcher();
+    }
+
+    /// <summary>Re-renders the rows so localized text is refreshed.</summary>
+    public void RefreshRows() => RefreshFromWatcher();
 
     /// <summary>
     /// Called when the OS reports a device or power change. Re-runs the watcher so a
@@ -252,10 +273,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _watcher.TriggerNow();
         RefreshFromWatcher();
 
-        StatusMessage = $"旧設定を取り込みました: 追加 {added} 件 / 統合 {merged} 件" +
-            (backupPath is null ? string.Empty : $"（既存設定を {System.IO.Path.GetFileName(backupPath)} に退避）") +
+        StatusMessage = Localization.Instance.Format("StatusImportResult", added, merged) +
+            (backupPath is null ? string.Empty : Localization.Instance.Format("StatusImportBackup", System.IO.Path.GetFileName(backupPath))) +
             (result.UnresolvedDevices.Count > 0
-                ? $"（デバイス未接続のため名前のまま保持: {result.UnresolvedDevices.Count} 件）"
+                ? Localization.Instance.Format("StatusImportUnresolved", result.UnresolvedDevices.Count)
                 : string.Empty);
 
         return (added, merged, result.UnresolvedDevices);
@@ -280,7 +301,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
         OnPropertyChanged(nameof(WatcherRunning));
         RefreshFromWatcher();
-        StatusMessage = _watcher.IsRunning ? "自動適用を実行中です。" : "自動適用は停止中です。";
+        StatusMessage = Localization.Instance[_watcher.IsRunning ? "StatusRunning" : "StatusStopped"];
     }
 
     public void ToggleWatcher()
@@ -288,12 +309,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         if (_watcher.IsRunning)
         {
             _watcher.Stop();
-            StatusMessage = "自動適用を停止しました。";
+            StatusMessage = Localization.Instance["StatusAutoStopped"];
         }
         else
         {
             _watcher.Start();
-            StatusMessage = "自動適用を開始しました。";
+            StatusMessage = Localization.Instance["StatusAutoStarted"];
         }
 
         OnPropertyChanged(nameof(WatcherRunning));
@@ -316,7 +337,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            StatusMessage = "更新に失敗しました: " + ex.Message;
+            StatusMessage = Localization.Instance.Format("StatusRefreshFailed", ex.Message);
         }
         finally
         {
@@ -388,7 +409,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
         if (!SelectedApp.Status.Mute.HasSession)
         {
-            StatusMessage = $"{SelectedApp.DisplayName}: 音声セッションがありません。音声を再生してから更新してください。";
+            StatusMessage = Localization.Instance.Format("StatusNoSession", SelectedApp.DisplayName);
             return;
         }
 
@@ -405,8 +426,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             var anyUnmuted = sessions.Any(s => !s.IsMuted);
             var changed = _sessions.SetMute(app.ProcessName, anyUnmuted);
             StatusMessage = changed > 0
-                ? $"{app.DisplayName}: {(anyUnmuted ? "ミュートしました" : "ミュートを解除しました")}"
-                : $"{app.DisplayName}: ミュートを変更できませんでした。";
+                ? Localization.Instance.Format(anyUnmuted ? "StatusMuted" : "StatusUnmuted", app.DisplayName)
+                : Localization.Instance.Format("StatusMuteFailed", app.DisplayName);
 
             _watcher.TriggerNow();
             return Task.CompletedTask;
@@ -426,7 +447,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         row.AutoApply = enabled ? 1 : 0;
         SaveSettings();
         _watcher.UpdateSettings(Settings);
-        StatusMessage = $"{row.DisplayName}: 自動適用を{(enabled ? "有効" : "無効")}にしました。";
+        StatusMessage = Localization.Instance.Format(enabled ? "StatusAutoApplyOn" : "StatusAutoApplyOff", row.DisplayName);
     }
 
     public void AddPriorityDevice()
@@ -495,7 +516,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            StatusMessage = "設定の保存に失敗しました: " + ex.Message;
+            StatusMessage = Localization.Instance.Format("StatusSaveFailed", ex.Message);
         }
     }
 
@@ -513,24 +534,24 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             var exe = Environment.ProcessPath;
             if (string.IsNullOrEmpty(exe))
             {
-                StatusMessage = "自動起動の設定に失敗しました: 実行ファイルのパスを取得できません。";
+                StatusMessage = Localization.Instance.Format("StatusAutoStartFailed", "exe");
                 return;
             }
 
             if (enabled)
             {
                 AutoStartRegistration.Enable(exe);
-                StatusMessage = "ログオン時に自動起動するよう登録しました。";
+                StatusMessage = Localization.Instance["StatusAutoStartOn"];
             }
             else
             {
                 AutoStartRegistration.Disable();
-                StatusMessage = "ログオン時の自動起動を解除しました。";
+                StatusMessage = Localization.Instance["StatusAutoStartOff"];
             }
         }
         catch (Exception ex)
         {
-            StatusMessage = "自動起動の設定に失敗しました: " + ex.Message;
+            StatusMessage = Localization.Instance.Format("StatusAutoStartFailed", ex.Message);
             Settings.AutoStartWithWindows = !enabled;
             OnPropertyChanged(nameof(AutoStartWithWindows));
         }
@@ -543,7 +564,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void OnCycleFailed(object? sender, string message)
     {
-        _dispatcher.BeginInvoke(() => StatusMessage = "自動適用でエラー: " + message);
+        _dispatcher.BeginInvoke(() => StatusMessage = Localization.Instance.Format("StatusWatchCycleFailed", message));
     }
 
     private void RefreshFromWatcher()
@@ -732,7 +753,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            StatusMessage = "操作に失敗しました: " + ex.Message;
+            StatusMessage = Localization.Instance.Format("StatusActionFailed", ex.Message);
         }
         finally
         {
@@ -754,6 +775,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void OnPropertyChanged(string? name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
+
+
+
 
 
 

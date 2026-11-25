@@ -1,12 +1,22 @@
 using System.ComponentModel;
 using System.Windows;
-using System.Windows.Controls;
+using GameAudioManager.Core.Configuration;
 
 namespace GameAudioManager.App;
 
 public partial class MainWindow : Window
 {
+    /// <summary>Theme options shown in the combo: setting value, then the label key.</summary>
+    private static readonly (string Value, string LabelKey)[] ThemeOptions =
+    {
+        (ThemeNames.System, "ThemeSystem"),
+        (ThemeNames.Light, "ThemeLight"),
+        (ThemeNames.Dark, "ThemeDark"),
+    };
+
     private readonly MainViewModel _viewModel;
+    private bool _suppressLanguageChange;
+    private bool _suppressThemeChange;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -16,11 +26,18 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
 
+        BuildThemeCombo();
+        BuildLanguageCombo();
+
         Loaded += (_, _) =>
         {
             _viewModel.Initialize();
+            RefreshLocalizedChrome();
             UpdateControls();
         };
+
+        // Keyboard shortcuts for the actions used most often.
+        PreviewKeyDown += OnPreviewKeyDown;
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -37,6 +54,60 @@ public partial class MainWindow : Window
         base.OnClosing(e);
     }
 
+    private void BuildThemeCombo()
+    {
+        UpdateThemeComboItems();
+
+        var current = ThemeNames.Normalize(_viewModel.Settings.Theme);
+        ThemeCombo.SelectedIndex = Array.FindIndex(ThemeOptions, o =>
+            string.Equals(o.Value, current, StringComparison.OrdinalIgnoreCase));
+        if (ThemeCombo.SelectedIndex < 0)
+        {
+            ThemeCombo.SelectedIndex = 0;
+        }
+    }
+
+    private void UpdateThemeComboItems()
+    {
+        // Rebuilding the items raises SelectionChanged; without this guard that
+        // re-enters here and recurses until the stack overflows.
+        var wasSuppressed = _suppressThemeChange;
+        _suppressThemeChange = true;
+        try
+        {
+            var selected = ThemeCombo.SelectedIndex;
+            ThemeCombo.Items.Clear();
+            foreach (var option in ThemeOptions)
+            {
+                ThemeCombo.Items.Add(Localization.Instance[option.LabelKey]);
+            }
+
+            ThemeCombo.SelectedIndex = selected >= 0 && selected < ThemeCombo.Items.Count ? selected : 0;
+        }
+        finally
+        {
+            _suppressThemeChange = wasSuppressed;
+        }
+    }
+
+    private void BuildLanguageCombo()
+    {
+        _suppressLanguageChange = true;
+        LanguageCombo.Items.Clear();
+        LanguageCombo.Items.Add("日本語");
+        LanguageCombo.Items.Add("English");
+        LanguageCombo.SelectedIndex = Localization.Instance.Language == Localization.Japanese ? 0 : 1;
+        _suppressLanguageChange = false;
+    }
+
+    /// <summary>Re-reads strings that are not bound through the indexer.</summary>
+    private void RefreshLocalizedChrome()
+    {
+        UpdateThemeComboItems();
+        WatcherButton.Content = Localization.Instance[
+            _viewModel.WatcherRunning ? "WatcherStop" : "WatcherStart"];
+    }
+
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         UpdateControls();
@@ -50,17 +121,17 @@ public partial class MainWindow : Window
         ApplyButton.IsEnabled = running && _viewModel.SelectedDevice is not null && !_viewModel.IsBusy;
         ResetButton.IsEnabled = running && !_viewModel.IsBusy;
         MuteButton.IsEnabled = running && !_viewModel.IsBusy;
-        WatcherButton.Content = _viewModel.WatcherRunning ? "自動適用を停止" : "自動適用を開始";
+        WatcherButton.Content = Localization.Instance[
+            _viewModel.WatcherRunning ? "WatcherStop" : "WatcherStart"];
 
-        MuteButton.Content = row?.Status.Mute switch
+        MuteButton.Content = Localization.Instance[row?.Status.Mute switch
         {
-            { HasSession: false } => "ミュート切替",
-            { IsMuted: true } => "ミュートを解除",
-            { HasSession: true } => "ミュートする",
-            _ => "ミュート切替",
-        };
+            { HasSession: false } => "MuteToggle",
+            { IsMuted: true } => "MuteOffButton",
+            { HasSession: true } => "MuteOnButton",
+            _ => "MuteToggle",
+        }];
     }
-
 
     private async void OnPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
@@ -94,29 +165,6 @@ public partial class MainWindow : Window
 
     private async void OnRefresh(object sender, RoutedEventArgs e) => await _viewModel.RefreshAsync();
 
-    private async void OnImportLegacy(object sender, RoutedEventArgs e)
-    {
-        var dialog = new Microsoft.Win32.OpenFileDialog
-        {
-            Title = "旧バージョンの games.json を選択",
-            Filter = "games.json|games.json|JSON|*.json|すべてのファイル|*.*",
-            CheckFileExists = true,
-        };
-
-        if (dialog.ShowDialog(this) != true)
-        {
-            return;
-        }
-
-        var result = await _viewModel.ImportLegacyAsync(dialog.FileName);
-        System.Windows.MessageBox.Show(
-            this,
-            $"追加: {result.Added} 件\n統合: {result.Merged} 件\n未接続で名前のまま保持: {result.Unresolved.Count} 件",
-            "旧設定の取り込み",
-            System.Windows.MessageBoxButton.OK,
-            System.Windows.MessageBoxImage.Information);
-    }
-
     private void OnToggleWatcher(object sender, RoutedEventArgs e) => _viewModel.ToggleWatcher();
 
     private async void OnApply(object sender, RoutedEventArgs e) => await _viewModel.ApplySelectedDeviceAsync();
@@ -124,6 +172,34 @@ public partial class MainWindow : Window
     private async void OnReset(object sender, RoutedEventArgs e) => await _viewModel.ResetSelectedAsync();
 
     private async void OnToggleMute(object sender, RoutedEventArgs e) => await _viewModel.ToggleMuteAsync();
+
+    private void OnThemeChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_suppressThemeChange
+            || ThemeCombo.SelectedIndex < 0
+            || ThemeCombo.SelectedIndex >= ThemeOptions.Length)
+        {
+            return;
+        }
+
+        _viewModel.SetTheme(ThemeOptions[ThemeCombo.SelectedIndex].Value);
+        UpdateControls();
+    }
+
+    private void OnLanguageChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_suppressLanguageChange || LanguageCombo.SelectedIndex < 0)
+        {
+            return;
+        }
+
+        _viewModel.SetLanguage(LanguageCombo.SelectedIndex == 0
+            ? Localization.Japanese
+            : Localization.English);
+
+        RefreshLocalizedChrome();
+        UpdateControls();
+    }
 
     private void OnAutoApplyToggled(object sender, RoutedEventArgs e)
     {
@@ -143,8 +219,29 @@ public partial class MainWindow : Window
 
     private void OnMovePriorityDown(object sender, RoutedEventArgs e) =>
         _viewModel.MovePriorityDeviceAt(PriorityList.SelectedIndex, 1);
+
+    private async void OnImportLegacy(object sender, RoutedEventArgs e)
+    {
+        var loc = Localization.Instance;
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = loc["ImportDialogTitle"],
+            Filter = loc["ImportDialogFilter"],
+            CheckFileExists = true,
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var result = await _viewModel.ImportLegacyAsync(dialog.FileName);
+        System.Windows.MessageBox.Show(
+            this,
+            loc.Format("ImportResultBody", result.Added, result.Merged, result.Unresolved.Count),
+            loc["ImportResultTitle"],
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Information);
+    }
 }
-
-
-
 

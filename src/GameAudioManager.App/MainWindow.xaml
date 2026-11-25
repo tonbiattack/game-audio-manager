@@ -1,14 +1,17 @@
 <Window x:Class="GameAudioManager.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:app="clr-namespace:GameAudioManager.App"
         Title="Game Audio Manager"
         Icon="Assets/app.ico"
-        Height="700" Width="1180"
-        MinHeight="520" MinWidth="900"
+        Height="720" Width="1200"
+        MinHeight="520" MinWidth="920"
         UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display"
         Background="{DynamicResource AppBackgroundBrush}"
         Foreground="{DynamicResource AppForegroundBrush}">
-    <Grid Margin="16">
+    <Grid Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -21,19 +24,41 @@
         </Grid.ColumnDefinitions>
 
         <!-- header -->
-        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,0,0,12">
-            <TextBlock Text="アプリケーション" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <TextBox x:Name="FilterBox" Width="220" Height="28" Margin="20,0,0,0"
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,0,0,14">
+            <TextBlock Text="{Binding [Header], Source={x:Static app:Localization.Instance}}"
+                       FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBox x:Name="FilterBox" Width="220" Height="30" Margin="20,0,0,0"
                      VerticalContentAlignment="Center"
-                     Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" />
-            <TextBlock Text="検索" Margin="6,0,0,0" VerticalAlignment="Center" Opacity="0.6" />
-            <CheckBox Content="未起動も表示" Margin="18,0,0,0" VerticalAlignment="Center"
+                     Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="{Binding [Search], Source={x:Static app:Localization.Instance}}" />
+            <TextBlock Text="{Binding [Search], Source={x:Static app:Localization.Instance}}"
+                       Margin="6,0,0,0" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppSubtleBrush}" />
+            <CheckBox Content="{Binding [ShowNotRunning], Source={x:Static app:Localization.Instance}}"
+                      Margin="18,0,0,0" VerticalAlignment="Center"
                       IsChecked="{Binding ShowNotRunning, Mode=TwoWay}" />
-            <Button Content="更新" Width="80" Height="28" Margin="18,0,0,0" Click="OnRefresh" />
-            <Button x:Name="WatcherButton" Content="自動適用を停止" Width="130" Height="28" Margin="8,0,0,0" Click="OnToggleWatcher" />
-            <CheckBox Content="ダークテーマ" Margin="16,0,0,0" VerticalAlignment="Center"
-                      IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" />
-            <Button Content="旧設定を取り込む…" Width="130" Height="28" Margin="12,0,0,0" Click="OnImportLegacy" />
+            <ui:Button x:Name="RefreshButton" Margin="18,0,0,0" Height="30" MinWidth="84"
+                       Content="{Binding [Refresh], Source={x:Static app:Localization.Instance}}"
+                       Click="OnRefresh" />
+            <ui:Button x:Name="WatcherButton" Margin="8,0,0,0" Height="30" MinWidth="140"
+                       Click="OnToggleWatcher" />
+
+            <TextBlock Text="{Binding [Theme], Source={x:Static app:Localization.Instance}}"
+                       Margin="18,0,6,0" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppSubtleBrush}" />
+            <ComboBox x:Name="ThemeCombo" Width="120" Height="30" Margin="0"
+                      VerticalContentAlignment="Center"
+                      SelectionChanged="OnThemeChanged" />
+
+            <TextBlock Text="{Binding [Language], Source={x:Static app:Localization.Instance}}"
+                       Margin="16,0,6,0" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppSubtleBrush}" />
+            <ComboBox x:Name="LanguageCombo" Width="120" Height="30"
+                      VerticalContentAlignment="Center"
+                      SelectionChanged="OnLanguageChanged" />
+
+            <ui:Button Content="{Binding [ImportLegacy], Source={x:Static app:Localization.Instance}}"
+                       Margin="12,0,0,0" Height="30" Click="OnImportLegacy" />
         </StackPanel>
 
         <!-- list -->
@@ -48,27 +73,42 @@
                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="アプリ" Width="200" DisplayMemberBinding="{Binding DisplayName}" />
-                    <GridViewColumn Header="状態" Width="100" DisplayMemberBinding="{Binding StateText}" />
-                    <GridViewColumn Header="出力先" Width="190" DisplayMemberBinding="{Binding DeviceText}" />
-                    <GridViewColumn Header="ミュート" Width="90" DisplayMemberBinding="{Binding MuteText}" />
-                    <GridViewColumn Header="自動" Width="70">
+                    <GridViewColumn Width="200"
+                                    Header="{Binding [ColumnApp], Source={x:Static app:Localization.Instance}}"
+                                    DisplayMemberBinding="{Binding DisplayName}" />
+                    <GridViewColumn Width="110"
+                                    Header="{Binding [ColumnState], Source={x:Static app:Localization.Instance}}"
+                                    DisplayMemberBinding="{Binding StateText}" />
+                    <GridViewColumn Width="200"
+                                    Header="{Binding [ColumnOutput], Source={x:Static app:Localization.Instance}}"
+                                    DisplayMemberBinding="{Binding DeviceText}" />
+                    <GridViewColumn Width="90"
+                                    Header="{Binding [ColumnMute], Source={x:Static app:Localization.Instance}}"
+                                    DisplayMemberBinding="{Binding MuteText}" />
+                    <GridViewColumn Width="60"
+                                    Header="{Binding [ColumnAuto], Source={x:Static app:Localization.Instance}}">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
                                 <CheckBox IsChecked="{Binding IsAutoApplyEnabled, Mode=OneWay}"
                                           Click="OnAutoApplyToggled"
                                           Tag="{Binding}"
-                                          ToolTip="このアプリの出力先を自動で維持する" />
+                                          MinWidth="24" MinHeight="24"
+                                          HorizontalAlignment="Center"
+                                          ToolTip="{Binding [ColumnAuto], Source={x:Static app:Localization.Instance}}" />
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn Header="プロセス" Width="150" DisplayMemberBinding="{Binding ProcessName}" />
+                    <GridViewColumn Width="150"
+                                    Header="{Binding [ColumnProcess], Source={x:Static app:Localization.Instance}}"
+                                    DisplayMemberBinding="{Binding ProcessName}" />
                 </GridView>
             </ListView.View>
         </ListView>
 
         <!-- priority editor -->
-        <Border Grid.Row="1" Grid.Column="1" Width="290" Margin="12,0,0,0" Padding="10" BorderThickness="1" CornerRadius="4" Background="{DynamicResource AppPanelBrush}"
+        <Border Grid.Row="1" Grid.Column="1" Width="300" Margin="14,0,0,0" Padding="12"
+                BorderThickness="1" CornerRadius="6"
+                Background="{DynamicResource AppPanelBrush}"
                 BorderBrush="{DynamicResource AppBorderBrush}">
             <Grid>
                 <Grid.RowDefinitions>
@@ -78,25 +118,37 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Text="優先デバイス順（上が優先）" FontWeight="SemiBold" Margin="0,0,0,6" />
+                <TextBlock Grid.Row="0" FontWeight="SemiBold" Margin="0,0,0,8"
+                           Text="{Binding [PriorityTitle], Source={x:Static app:Localization.Instance}}" />
 
                 <ListBox Grid.Row="1" x:Name="PriorityList" ItemsSource="{Binding PriorityDeviceNames}"
                          Background="{DynamicResource AppBackgroundBrush}"
-                         Foreground="{DynamicResource AppForegroundBrush}" />
+                         Foreground="{DynamicResource AppForegroundBrush}"
+                         BorderBrush="{DynamicResource AppBorderBrush}" />
 
-                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
-                    <Button Content="候補に追加" Width="100" Height="26" Click="OnAddPriority" />
-                    <Button Content="削除" Width="70" Height="26" Margin="6,0,0,0" Click="OnRemovePriority" />
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+                    <ui:Button MinWidth="110" Height="30"
+                               Content="{Binding [AddCandidate], Source={x:Static app:Localization.Instance}}"
+                               Click="OnAddPriority" />
+                    <ui:Button MinWidth="80" Height="30" Margin="8,0,0,0"
+                               Content="{Binding [RemoveCandidate], Source={x:Static app:Localization.Instance}}"
+                               Click="OnRemovePriority" />
                 </StackPanel>
-                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,6,0,0">
-                    <Button Content="上へ" Width="100" Height="26" Click="OnMovePriorityUp" />
-                    <Button Content="下へ" Width="70" Height="26" Margin="6,0,0,0" Click="OnMovePriorityDown" />
+                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
+                    <ui:Button MinWidth="110" Height="30"
+                               Content="{Binding [MoveUp], Source={x:Static app:Localization.Instance}}"
+                               Click="OnMovePriorityUp" />
+                    <ui:Button MinWidth="80" Height="30" Margin="8,0,0,0"
+                               Content="{Binding [MoveDown], Source={x:Static app:Localization.Instance}}"
+                               Click="OnMovePriorityDown" />
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- actions -->
-        <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="0,12,0,0" Padding="12" BorderThickness="1" CornerRadius="4" Background="{DynamicResource AppPanelBrush}"
+        <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="0,14,0,0" Padding="14"
+                BorderThickness="1" CornerRadius="6"
+                Background="{DynamicResource AppPanelBrush}"
                 BorderBrush="{DynamicResource AppBorderBrush}">
             <Grid>
                 <Grid.RowDefinitions>
@@ -109,32 +161,34 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="出力先" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Text="{Binding [OutputLabel], Source={x:Static app:Localization.Instance}}" />
                 <ComboBox Grid.Row="0" Grid.Column="1"
                           ItemsSource="{Binding Devices}"
                           SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
                           DisplayMemberPath="Name"
-                          Height="30" VerticalContentAlignment="Center" />
-                <Button x:Name="ApplyButton" Grid.Row="0" Grid.Column="2" Content="適用" Width="90" Height="30" Margin="8,0,0,0" Click="OnApply" />
+                          Height="32" VerticalContentAlignment="Center" />
+                <ui:Button x:Name="ApplyButton" Grid.Row="0" Grid.Column="2" MinWidth="90" Height="32" Margin="8,0,0,0"
+                           Content="{Binding [Apply], Source={x:Static app:Localization.Instance}}"
+                           Click="OnApply" />
 
-                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,10,0,0">
-                    <Button x:Name="ResetButton" Content="Windows の既定へ戻す" Width="180" Height="30" Click="OnReset" />
-                    <Button x:Name="MuteButton" Content="ミュート切替" Width="130" Height="30" Margin="8,0,0,0" Click="OnToggleMute" />
-                    <CheckBox x:Name="AutoStartCheck" Content="ログオン時に自動起動" Margin="18,0,0,0" VerticalAlignment="Center"
+                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,12,0,0">
+                    <ui:Button x:Name="ResetButton" MinWidth="190" Height="32"
+                               Content="{Binding [ResetToDefault], Source={x:Static app:Localization.Instance}}"
+                               Click="OnReset" />
+                    <ui:Button x:Name="MuteButton" MinWidth="140" Height="32" Margin="8,0,0,0" Click="OnToggleMute" />
+                    <CheckBox Margin="20,0,0,0" VerticalAlignment="Center"
+                              Content="{Binding [AutoStartWithWindows], Source={x:Static app:Localization.Instance}}"
                               IsChecked="{Binding AutoStartWithWindows, Mode=TwoWay}" />
-                    <TextBlock Margin="18,0,0,0" VerticalAlignment="Center" Opacity="0.7"
-                               Text="出力先の変更は、アプリが次に音声セッションを作るときに反映されます。" />
+                    <TextBlock Margin="20,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"
+                               Foreground="{DynamicResource AppSubtleBrush}"
+                               Text="{Binding [RoutingHint], Source={x:Static app:Localization.Instance}}" />
                 </StackPanel>
             </Grid>
         </Border>
 
         <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Margin="0,10,0,0"
                    Text="{Binding StatusMessage}"
-                   TextWrapping="Wrap" MinHeight="34" VerticalAlignment="Top" />
+                   TextWrapping="Wrap" MinHeight="36" VerticalAlignment="Top" />
     </Grid>
 </Window>
-
-
-
-
-

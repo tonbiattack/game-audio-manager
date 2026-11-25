@@ -32,8 +32,11 @@ public sealed class AppSettings
 
     public bool AutoStartWithWindows { get; set; }
 
-    /// <summary>"light" or "dark". Unknown values fall back to light.</summary>
-    public string Theme { get; set; } = ThemeNames.Light;
+    /// <summary>"light", "dark" or "system". Unknown values fall back to system.</summary>
+    public string Theme { get; set; } = ThemeNames.System;
+
+    /// <summary>"ja", "en", or empty to follow the OS UI language.</summary>
+    public string Language { get; set; } = string.Empty;
 
     public List<AppRule> Rules { get; set; } = new();
 }
@@ -44,8 +47,22 @@ public static class ThemeNames
     public const string Light = "light";
     public const string Dark = "dark";
 
+    /// <summary>Follow the Windows app theme.</summary>
+    public const string System = "system";
+
     public static string Normalize(string? value)
     {
-        return string.Equals(value, Dark, StringComparison.OrdinalIgnoreCase) ? Dark : Light;
+        if (string.Equals(value, Dark, StringComparison.OrdinalIgnoreCase))
+        {
+            return Dark;
+        }
+
+        if (string.Equals(value, System, StringComparison.OrdinalIgnoreCase))
+        {
+            return System;
+        }
+
+        return Light;
     }
 }
+

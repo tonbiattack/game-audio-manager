@@ -1,39 +1,55 @@
 <Application x:Class="GameAudioManager.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
     <Application.Resources>
-        <!-- Replaced at startup by ThemeManager.Apply(). -->
-        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="AppForegroundBrush" Color="#1B1B1B" />
-        <SolidColorBrush x:Key="AppPanelBrush" Color="#F7F7F7" />
-        <SolidColorBrush x:Key="AppBorderBrush" Color="#C8C8C8" />
-        <SolidColorBrush x:Key="AppSubtleBrush" Color="#606060" />
-        <SolidColorBrush x:Key="AppHeaderBrush" Color="#ECECEC" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Light" />
+                <ui:ControlsDictionary />
+            </ResourceDictionary.MergedDictionaries>
 
-        <!-- Rows and headers inherit the theme so the dark palette does not leave a white grid. -->
-        <Style TargetType="ListViewItem">
-            <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
-            <Setter Property="Padding" Value="2,3" />
-            <Style.Triggers>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource AppHeaderBrush}" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+            <!-- Replaced at startup by ThemeManager.Apply(). -->
+            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="AppForegroundBrush" Color="#1B1B1B" />
+            <SolidColorBrush x:Key="AppPanelBrush" Color="#F7F7F7" />
+            <SolidColorBrush x:Key="AppBorderBrush" Color="#D6D6D6" />
+            <SolidColorBrush x:Key="AppSubtleBrush" Color="#5A5A5A" />
+            <SolidColorBrush x:Key="AppHeaderBrush" Color="#F0F0F0" />
 
-        <Style TargetType="GridViewColumnHeader">
-            <Setter Property="Background" Value="{DynamicResource AppHeaderBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
-            <Setter Property="BorderThickness" Value="0,0,1,1" />
-            <Setter Property="Padding" Value="6,4" />
-            <Setter Property="HorizontalContentAlignment" Value="Left" />
-        </Style>
+            <!-- Rows and headers follow the theme so the dark palette has no white gaps. -->
+            <Style TargetType="ListViewItem">
+                <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+                <Setter Property="Padding" Value="2,4" />
+                <Setter Property="MinHeight" Value="28" />
+                <Style.Triggers>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource AppHeaderBrush}" />
+                    </Trigger>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource AppHeaderBrush}" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
 
-        <Style TargetType="ListBoxItem">
-            <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
-        </Style>
+            <Style TargetType="GridViewColumnHeader">
+                <Setter Property="Background" Value="{DynamicResource AppHeaderBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+                <Setter Property="BorderThickness" Value="0,0,1,1" />
+                <Setter Property="Padding" Value="8,6" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+            </Style>
+
+            <Style TargetType="ListBoxItem">
+                <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+                <Setter Property="MinHeight" Value="26" />
+            </Style>
+
+
+        </ResourceDictionary>
     </Application.Resources>
 </Application>
 
