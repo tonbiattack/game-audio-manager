@@ -12,6 +12,10 @@ Windows 上でアプリ・ゲームごとの音声出力先とミュートを切
 
 ![ダークテーマ](docs/images/dotnet-app-dark.png)
 
+日本語 / English を切り替えられます。
+
+![English UI](docs/images/dotnet-app-en.png)
+
 ## 入手する（デスクトップアプリ版・推奨）
 
 1. [Releases](https://github.com/tonbiattack/game-audio-manager/releases) から最新の `game-audio-manager-<version>-win-x64.zip` をダウンロードします
@@ -118,6 +122,8 @@ dotnet test tests/GameAudioManager.Core.Tests/GameAudioManager.Core.Tests.csproj
 
 - [docs/dotnet-migration.md](docs/dotnet-migration.md) — 移行の経緯、MSIX/EXE/MSI の比較、決定事項
 - [docs/audio-policy-api.md](docs/audio-policy-api.md) — 非公開音声 API の検証マトリクスと既知の制限
+- [docs/performance.md](docs/performance.md) — 常駐時の CPU / メモリ計測
+- [docs/store-listing.md](docs/store-listing.md) — ストア掲載素材と公開手順
 
 ## PowerShell 版から移行する
 
@@ -489,6 +495,7 @@ docs/                           補足ドキュメント
 音声出力の制御には NirSoft の SoundVolumeCommandLine を利用しています。
 `vendor/svcl/` にある `svcl.exe`、`svcl.chm`、`readme.txt` は同ツールの未改変の 64-bit 配布物であり、
 MIT License の対象外です。配布条件と著作権表記は [Third-party notices](THIRD_PARTY_NOTICES.md) を参照してください。
+
 
 
 

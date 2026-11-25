@@ -297,3 +297,4 @@ public sealed class WatcherService : IDisposable
 
     private sealed record ProcessSnapshot(int Id, string Identity);
 }
+

@@ -55,18 +55,39 @@ public sealed class AppRow : INotifyPropertyChanged
         set => Set(ref _isChecked, value);
     }
 
-    public string StateText => _status.StateText;
+    /// <summary>Localized state label. Maps the enum rather than the Core-supplied text.</summary>
+    public string StateText => Localization.Instance[StateKey(_status.State)];
+
+    private static string StateKey(RoutingState state) => state switch
+    {
+        RoutingState.Applied => "StateApplied",
+        RoutingState.Pending => "StatePending",
+        RoutingState.NoActiveCandidate => "StateNoDevice",
+        RoutingState.Failed => "StateFailed",
+        RoutingState.NotRunning => "StateNotRunning",
+        _ => "StateNoRule",
+    };
 
     public string MuteText => _status.Mute switch
     {
-        { HasSession: false } => "—",
-        { IsMixed: true } => $"混在 ({_status.Mute.SessionCount})",
-        { IsMuted: true } => "ミュート中",
-        _ => "解除",
+        { HasSession: false } => Localization.Instance["MuteNone"],
+        { IsMixed: true } => $"{Localization.Instance["MuteMixed"]} ({_status.Mute.SessionCount})",
+        { IsMuted: true } => Localization.Instance["MuteOn"],
+        _ => Localization.Instance["MuteOff"],
     };
 
     public string DeviceText => _status.AppliedDeviceName
-        ?? _status.DestinationDeviceId ?? "既定の出力";
+        ?? _status.DestinationDeviceId
+        ?? Localization.Instance["DefaultOutput"];
+
+    /// <summary>Re-reads every localized label after a language change.</summary>
+    public void RefreshLocalization()
+    {
+        Raise(nameof(StateText));
+        Raise(nameof(MuteText));
+        Raise(nameof(DeviceText));
+        Raise(nameof(AutoApplyText));
+    }
 
     /// <summary>1 = auto apply on, 0 = off. Bound to the row toggle for simplicity.</summary>
     public int AutoApply
@@ -114,4 +135,6 @@ public sealed class AppRow : INotifyPropertyChanged
 
     private void Raise(string? name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
+
+
 
