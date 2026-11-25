@@ -23,6 +23,7 @@ public partial class App : System.Windows.Application
     private SingleInstanceGuard? _singleInstance;
     private NotifyIcon? _trayIcon;
     private MainWindow? _window;
+    private DeviceChangeWatcher? _deviceWatcher;
 
     /// <summary>True once the user chose to quit, so the window may really close.</summary>
     public static bool IsExiting { get; private set; }
@@ -47,16 +48,43 @@ public partial class App : System.Windows.Application
         var routing = new AudioPolicyConfigRoutingService(devices);
         var store = new SettingsStore(SettingsStore.GetDefaultPath());
 
+        // Apply the saved theme before the first frame so there is no flash of the
+        // wrong palette.
+        ThemeManager.Apply(store.Load().Theme);
+
         var viewModel = new MainViewModel(devices, sessions, routing, store);
         _window = new MainWindow(viewModel);
         MainWindow = _window;
 
         CreateTrayIcon(viewModel);
+        SubscribeSystemEvents(viewModel);
 
         if (!e.Args.Contains("--minimized", StringComparer.OrdinalIgnoreCase))
         {
             _window.Show();
         }
+    }
+
+    /// <summary>
+    /// Re-runs the watcher when the machine's audio situation changes.
+    /// </summary>
+    /// <remarks>
+    /// Device arrivals/removals come through <see cref="DeviceChangeWatcher"/> because
+    /// .NET does not expose <c>SystemEvents.DeviceChange</c>. Resume-from-sleep is
+    /// handled separately: the audio service can rebuild endpoints while the app is
+    /// suspended, so the rules must be re-applied even though no device message arrives.
+    /// </remarks>
+    private void SubscribeSystemEvents(MainViewModel viewModel)
+    {
+        _deviceWatcher = new DeviceChangeWatcher(viewModel.OnExternalChange);
+
+        Microsoft.Win32.SystemEvents.PowerModeChanged += (_, e) =>
+        {
+            if (e.Mode == Microsoft.Win32.PowerModes.Resume)
+            {
+                viewModel.OnExternalChange();
+            }
+        };
     }
 
     /// <summary>Brings the window back from the tray.</summary>
@@ -112,4 +140,5 @@ public partial class App : System.Windows.Application
         Shutdown();
     }
 }
+
 

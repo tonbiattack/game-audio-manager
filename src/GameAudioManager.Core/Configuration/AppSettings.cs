@@ -32,5 +32,20 @@ public sealed class AppSettings
 
     public bool AutoStartWithWindows { get; set; }
 
+    /// <summary>"light" or "dark". Unknown values fall back to light.</summary>
+    public string Theme { get; set; } = ThemeNames.Light;
+
     public List<AppRule> Rules { get; set; } = new();
+}
+
+/// <summary>Supported theme identifiers, kept as constants so a typo cannot silently change the UI.</summary>
+public static class ThemeNames
+{
+    public const string Light = "light";
+    public const string Dark = "dark";
+
+    public static string Normalize(string? value)
+    {
+        return string.Equals(value, Dark, StringComparison.OrdinalIgnoreCase) ? Dark : Light;
+    }
 }
