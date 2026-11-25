@@ -1,21 +1,22 @@
 using System.Windows;
+using System.Windows.Media;
 using GameAudioManager.Core.Configuration;
 using Wpf.Ui.Appearance;
 
 namespace GameAudioManager.App;
 
 /// <summary>
-/// Applies the Fluent (WPF UI) palette and the small set of brushes the window binds to.
+/// Applies the Fluent (WPF UI) palette and the brushes this window binds to.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>ApplicationThemeManager.Apply</c> restyles the standard controls. The named
-/// brushes below are what this app's XAML uses directly, so they are refreshed from the
-/// same choice to keep custom panels consistent with the Fluent controls.
+/// Contrast was chosen against WCAG 2.1 AA for body text: the dark theme uses
+/// #F5F5F5 on #1B1B1B (about 15:1) and secondary text #C9C9C9 (about 10:1), rather
+/// than the previous muted greys which were hard to read on a bright display.
 /// </para>
 /// <para>
-/// "system" mode resolves to the Windows app theme and is re-applied when the user
-/// changes it while the app runs.
+/// "system" resolves to the Windows app theme and is re-applied when the user changes
+/// it while the app runs.
 /// </para>
 /// </remarks>
 public static class ThemeManager
@@ -26,6 +27,8 @@ public static class ThemeManager
     public const string BorderKey = "AppBorderBrush";
     public const string SubtleKey = "AppSubtleBrush";
     public const string HeaderKey = "AppHeaderBrush";
+    public const string RowAltKey = "AppRowAltBrush";
+    public const string AccentKey = "AppAccentBrush";
 
     /// <summary>Resolves a configured theme name to "light" or "dark".</summary>
     public static string ResolveEffectiveTheme(string configured)
@@ -81,30 +84,37 @@ public static class ThemeManager
 
         if (dark)
         {
-            Set(resources, BackgroundKey, "#202020");
-            Set(resources, ForegroundKey, "#F3F3F3");
-            Set(resources, PanelKey, "#2B2B2B");
-            Set(resources, BorderKey, "#3F3F3F");
-            Set(resources, SubtleKey, "#B0B0B0");
+            // Deliberately higher contrast than the stock Fluent dark palette: the grid
+            // is mostly small text, and the muted greys were hard to read.
+            Set(resources, BackgroundKey, "#1B1B1B");
+            Set(resources, ForegroundKey, "#F5F5F5");
+            Set(resources, PanelKey, "#262626");
+            Set(resources, BorderKey, "#5A5A5A");
+            Set(resources, SubtleKey, "#C9C9C9");
             Set(resources, HeaderKey, "#333333");
+            Set(resources, RowAltKey, "#212121");
+            Set(resources, AccentKey, "#8AB4F8");
         }
         else
         {
             Set(resources, BackgroundKey, "#FFFFFF");
-            Set(resources, ForegroundKey, "#1B1B1B");
+            Set(resources, ForegroundKey, "#1A1A1A");
             Set(resources, PanelKey, "#F7F7F7");
-            Set(resources, BorderKey, "#D6D6D6");
-            Set(resources, SubtleKey, "#5A5A5A");
-            Set(resources, HeaderKey, "#F0F0F0");
+            Set(resources, BorderKey, "#B0B0B0");
+            Set(resources, SubtleKey, "#505050");
+            Set(resources, HeaderKey, "#EDEDED");
+            Set(resources, RowAltKey, "#FAFAFA");
+            Set(resources, AccentKey, "#1F6FEB");
         }
     }
 
     private static void Set(System.Windows.ResourceDictionary resources, string key, string color)
     {
-        var brush = new System.Windows.Media.SolidColorBrush(
+        var brush = new SolidColorBrush(
             (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(color));
         brush.Freeze();
         resources[key] = brush;
     }
+
 }
 

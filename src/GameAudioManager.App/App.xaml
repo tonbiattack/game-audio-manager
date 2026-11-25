@@ -15,20 +15,28 @@
             <SolidColorBrush x:Key="AppPanelBrush" Color="#F7F7F7" />
             <SolidColorBrush x:Key="AppBorderBrush" Color="#D6D6D6" />
             <SolidColorBrush x:Key="AppSubtleBrush" Color="#5A5A5A" />
-            <SolidColorBrush x:Key="AppHeaderBrush" Color="#F0F0F0" />
+            <SolidColorBrush x:Key="AppHeaderBrush" Color="#EDEDED" />
+            <SolidColorBrush x:Key="AppRowAltBrush" Color="#FAFAFA" />
+            <SolidColorBrush x:Key="AppAccentBrush" Color="#1F6FEB" />
 
             <!-- Rows and headers follow the theme so the dark palette has no white gaps. -->
             <Style TargetType="ListViewItem">
                 <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
                 <Setter Property="Padding" Value="2,4" />
-                <Setter Property="MinHeight" Value="28" />
+                <Setter Property="MinHeight" Value="30" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Style.Triggers>
-                    <Trigger Property="IsSelected" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource AppHeaderBrush}" />
+                    <!-- Alternating rows make a wide grid easier to follow. -->
+                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                        <Setter Property="Background" Value="{DynamicResource AppRowAltBrush}" />
                     </Trigger>
                     <Trigger Property="IsMouseOver" Value="True">
                         <Setter Property="Background" Value="{DynamicResource AppHeaderBrush}" />
+                    </Trigger>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource AppHeaderBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
                     </Trigger>
                 </Style.Triggers>
             </Style>
@@ -52,4 +60,5 @@
         </ResourceDictionary>
     </Application.Resources>
 </Application>
+
 

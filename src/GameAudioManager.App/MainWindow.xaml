@@ -59,6 +59,8 @@
 
             <ui:Button Content="{Binding [ImportLegacy], Source={x:Static app:Localization.Instance}}"
                        Margin="12,0,0,0" Height="30" Click="OnImportLegacy" />
+            <ui:Button Content="{Binding [Help], Source={x:Static app:Localization.Instance}}"
+                       Margin="8,0,0,0" Height="30" MinWidth="80" Click="OnOpenHelp" />
         </StackPanel>
 
         <!-- list -->
@@ -67,15 +69,25 @@
                   ItemsSource="{Binding AppsView}"
                   SelectedItem="{Binding SelectedApp, Mode=TwoWay}"
                   SelectionMode="Single"
+                  AlternationCount="2"
                   Background="{DynamicResource AppBackgroundBrush}"
                   Foreground="{DynamicResource AppForegroundBrush}"
                   BorderBrush="{DynamicResource AppBorderBrush}"
                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Width="200"
-                                    Header="{Binding [ColumnApp], Source={x:Static app:Localization.Instance}}"
-                                    DisplayMemberBinding="{Binding DisplayName}" />
+                    <GridViewColumn Width="220"
+                                    Header="{Binding [ColumnApp], Source={x:Static app:Localization.Instance}}">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Image Source="{Binding Icon}" Width="16" Height="16"
+                                           Margin="2,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
                     <GridViewColumn Width="110"
                                     Header="{Binding [ColumnState], Source={x:Static app:Localization.Instance}}"
                                     DisplayMemberBinding="{Binding StateText}" />
@@ -192,3 +204,4 @@
                    TextWrapping="Wrap" MinHeight="36" VerticalAlignment="Top" />
     </Grid>
 </Window>
+

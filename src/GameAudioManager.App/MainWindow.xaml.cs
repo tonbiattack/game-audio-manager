@@ -15,6 +15,7 @@ public partial class MainWindow : Window
     };
 
     private readonly MainViewModel _viewModel;
+    private HelpWindow? _helpWindow;
     private bool _suppressLanguageChange;
     private bool _suppressThemeChange;
 
@@ -155,12 +156,32 @@ public partial class MainWindow : Window
                 _viewModel.ToggleWatcher();
                 e.Handled = true;
                 break;
+            case System.Windows.Input.Key.F1:
+                ShowHelp();
+                e.Handled = true;
+                break;
             case System.Windows.Input.Key.Escape when FilterBox.IsKeyboardFocusWithin:
                 _viewModel.FilterText = string.Empty;
                 AppList.Focus();
                 e.Handled = true;
                 break;
         }
+    }
+
+    private void OnOpenHelp(object sender, RoutedEventArgs e) => ShowHelp();
+
+    /// <summary>Shows the usage guide, reusing the open window if there is one.</summary>
+    private void ShowHelp()
+    {
+        if (_helpWindow is { IsLoaded: true })
+        {
+            _helpWindow.Activate();
+            return;
+        }
+
+        _helpWindow = new HelpWindow { Owner = this };
+        _helpWindow.Closed += (_, _) => _helpWindow = null;
+        _helpWindow.Show();
     }
 
     private async void OnRefresh(object sender, RoutedEventArgs e) => await _viewModel.RefreshAsync();
@@ -244,4 +265,5 @@ public partial class MainWindow : Window
             System.Windows.MessageBoxImage.Information);
     }
 }
+
 
