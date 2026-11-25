@@ -88,7 +88,24 @@ public sealed class AudioPolicyConfigRoutingService : IAppRoutingService, IRouti
     public static bool IsSupported => TryCreateFactory(out var factory, out _) && factory != IntPtr.Zero && ReleaseAndCheck(factory);
 
     /// <inheritdoc />
-    public bool IsAvailable => IsSupported;
+    /// <remarks>
+    /// Probes the configured provider so the reported capability matches what an
+    /// actual call would do (the provider is injectable for tests).
+    /// </remarks>
+    public bool IsAvailable
+    {
+        get
+        {
+            var created = _factoryProvider();
+            if (!created.Ok || created.Factory == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            Release(created.Factory);
+            return true;
+        }
+    }
 
     /// <inheritdoc />
     public string UnavailableMessage => UnsupportedMessage;

@@ -13,6 +13,16 @@ namespace GameAudioManager.Core.Tests;
 /// </remarks>
 public sealed class AudioPolicyConfigFailureTests
 {
+    /// <summary>
+    /// The test host's own process name, so the "application is running" branch is
+    /// reached. The unsupported-API path is only taken for a running application, and
+    /// CI has no Chrome to rely on.
+    /// </summary>
+    private static readonly string RunningProcessName =
+        System.Diagnostics.Process.GetCurrentProcess().ProcessName;
+
+    private const string KnownDeviceId = "{0.0.0.00000000}.{dev}";
+
     private sealed class Devices : IAudioDeviceService
     {
         public List<AudioDevice> Items { get; } = new();
@@ -26,7 +36,7 @@ public sealed class AudioPolicyConfigFailureTests
     private static Devices OneActiveDevice()
     {
         var devices = new Devices();
-        devices.Items.Add(new AudioDevice("{0.0.0.00000000}.{dev}", "Speakers", AudioDeviceState.Active, true));
+        devices.Items.Add(new AudioDevice(KnownDeviceId, "Speakers", AudioDeviceState.Active, true));
         return devices;
     }
 
@@ -38,7 +48,7 @@ public sealed class AudioPolicyConfigFailureTests
     {
         var service = WithUnavailableApi(OneActiveDevice());
 
-        var result = service.SetPreferredDevice("chrome", "{0.0.0.00000000}.{dev}");
+        var result = service.SetPreferredDevice(RunningProcessName, KnownDeviceId);
 
         Assert.False(result.Recorded);
         Assert.Contains("利用できません", result.Message, StringComparison.Ordinal);
@@ -49,7 +59,7 @@ public sealed class AudioPolicyConfigFailureTests
     {
         var service = WithUnavailableApi(OneActiveDevice());
 
-        var result = service.ResetToDefault("chrome");
+        var result = service.ResetToDefault(RunningProcessName);
 
         Assert.False(result.Recorded);
         Assert.Contains("利用できません", result.Message, StringComparison.Ordinal);
@@ -60,7 +70,7 @@ public sealed class AudioPolicyConfigFailureTests
     {
         var service = WithUnavailableApi(OneActiveDevice());
 
-        Assert.Null(service.GetPreferredDevice("chrome"));
+        Assert.Null(service.GetPreferredDevice(RunningProcessName));
     }
 
     [Fact]
@@ -70,7 +80,7 @@ public sealed class AudioPolicyConfigFailureTests
 
         // An unknown device is a caller error and must be reported as such even when
         // the API itself is unavailable.
-        var result = service.SetPreferredDevice("chrome", "{0.0.0.00000000}.{missing}");
+        var result = service.SetPreferredDevice(RunningProcessName, "{0.0.0.00000000}.{missing}");
 
         Assert.False(result.Recorded);
         Assert.Contains("was not found", result.Message, StringComparison.OrdinalIgnoreCase);
@@ -91,11 +101,9 @@ public sealed class AudioPolicyConfigFailureTests
     [Fact]
     public void BuildEndpointPath_IsStableForTheSameDevice()
     {
-        const string id = "{0.0.0.00000000}.{abc}";
-
         Assert.Equal(
-            AudioPolicyConfigRoutingService.BuildEndpointPath(id),
-            AudioPolicyConfigRoutingService.BuildEndpointPath(id));
+            AudioPolicyConfigRoutingService.BuildEndpointPath(KnownDeviceId),
+            AudioPolicyConfigRoutingService.BuildEndpointPath(KnownDeviceId));
     }
 
     [Fact]
@@ -103,5 +111,14 @@ public sealed class AudioPolicyConfigFailureTests
     {
         // The message is user-facing; it must not imply the whole app is broken.
         Assert.Contains("ミュート", AudioPolicyConfigRoutingService.UnsupportedMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Capability_ReportsUnavailableMessage()
+    {
+        var service = WithUnavailableApi(OneActiveDevice());
+
+        Assert.False(service.IsAvailable);
+        Assert.Equal(AudioPolicyConfigRoutingService.UnsupportedMessage, service.UnavailableMessage);
     }
 }
