@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace GameAudioManager.App;
 
@@ -17,15 +18,23 @@ public partial class MainWindow : Window
 
         Loaded += (_, _) =>
         {
-            _viewModel.Start();
+            _viewModel.Initialize();
             UpdateControls();
         };
     }
 
-    protected override void OnClosed(EventArgs e)
+    protected override void OnClosing(CancelEventArgs e)
     {
+        // Closing the window must not stop automation: the app lives in the tray.
+        if (!App.IsExiting)
+        {
+            e.Cancel = true;
+            Hide();
+            return;
+        }
+
         _viewModel.Dispose();
-        base.OnClosed(e);
+        base.OnClosing(e);
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -36,13 +45,14 @@ public partial class MainWindow : Window
     private void UpdateControls()
     {
         var row = _viewModel.SelectedApp;
-        var hasRunningSelection = row is { IsRunning: true };
-        BusyText.Text = _viewModel.IsBusy ? "処理中…" : string.Empty;
+        var running = row is { Status.IsRunning: true };
 
-        ApplyButton.IsEnabled = hasRunningSelection && _viewModel.SelectedDevice is not null && !_viewModel.IsBusy;
-        ResetButton.IsEnabled = hasRunningSelection && !_viewModel.IsBusy;
-        MuteButton.IsEnabled = hasRunningSelection && !_viewModel.IsBusy;
-        MuteButton.Content = row?.MuteState switch
+        ApplyButton.IsEnabled = running && _viewModel.SelectedDevice is not null && !_viewModel.IsBusy;
+        ResetButton.IsEnabled = running && !_viewModel.IsBusy;
+        MuteButton.IsEnabled = running && !_viewModel.IsBusy;
+        WatcherButton.Content = _viewModel.WatcherRunning ? "自動適用を停止" : "自動適用を開始";
+
+        MuteButton.Content = row?.Status.Mute switch
         {
             { HasSession: false } => "ミュート切替",
             { IsMuted: true } => "ミュートを解除",
@@ -51,23 +61,35 @@ public partial class MainWindow : Window
         };
     }
 
-    private async void OnRefresh(object sender, RoutedEventArgs e)
+
+    private async void OnRefresh(object sender, RoutedEventArgs e) => await _viewModel.RefreshAsync();
+
+    private void OnToggleWatcher(object sender, RoutedEventArgs e) => _viewModel.ToggleWatcher();
+
+    private async void OnApply(object sender, RoutedEventArgs e) => await _viewModel.ApplySelectedDeviceAsync();
+
+    private async void OnReset(object sender, RoutedEventArgs e) => await _viewModel.ResetSelectedAsync();
+
+    private async void OnToggleMute(object sender, RoutedEventArgs e) => await _viewModel.ToggleMuteAsync();
+
+    private void OnAutoApplyToggled(object sender, RoutedEventArgs e)
     {
-        await _viewModel.RefreshAsync();
+        if (sender is System.Windows.Controls.CheckBox { Tag: AppRow row } box)
+        {
+            _viewModel.SetAutoApply(row, box.IsChecked == true);
+        }
     }
 
-    private async void OnApply(object sender, RoutedEventArgs e)
-    {
-        await _viewModel.ApplySelectedDeviceAsync();
-    }
+    private void OnAddPriority(object sender, RoutedEventArgs e) => _viewModel.AddPriorityDevice();
 
-    private async void OnReset(object sender, RoutedEventArgs e)
-    {
-        await _viewModel.ResetSelectedAsync();
-    }
+    private void OnRemovePriority(object sender, RoutedEventArgs e) =>
+        _viewModel.RemovePriorityDeviceAt(PriorityList.SelectedIndex);
 
-    private async void OnToggleMute(object sender, RoutedEventArgs e)
-    {
-        await _viewModel.ToggleMuteAsync();
-    }
+    private void OnMovePriorityUp(object sender, RoutedEventArgs e) =>
+        _viewModel.MovePriorityDeviceAt(PriorityList.SelectedIndex, -1);
+
+    private void OnMovePriorityDown(object sender, RoutedEventArgs e) =>
+        _viewModel.MovePriorityDeviceAt(PriorityList.SelectedIndex, 1);
 }
+
+

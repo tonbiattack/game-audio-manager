@@ -88,3 +88,47 @@ public sealed record RoutingResult(bool Recorded, bool AppliedToLiveSession, str
 
     public static RoutingResult RecordedPendingSession(string message) => new(true, false, message);
 }
+/// <summary>Aggregate mute information for one application.</summary>
+public sealed record MuteSummary(bool HasSession, int SessionCount, int MutedCount, int EndpointCount)
+{
+    public static MuteSummary None { get; } = new(false, 0, 0, 0);
+}
+
+/// <summary>
+/// Session queries the watcher needs. Narrower than <see cref="IAudioSessionService"/>
+/// so the watcher can be tested without a live audio stack.
+/// </summary>
+public interface ISessionQuery
+{
+    IReadOnlyList<AudioSessionInfo> GetSessions(string processName);
+
+    MuteSummary GetMuteSummary(string processName);
+}
+
+/// <summary>Adapts the real Core Audio service to <see cref="ISessionQuery"/>.</summary>
+public sealed class SessionQuery : ISessionQuery
+{
+    private readonly IAudioSessionService _sessions;
+
+    public SessionQuery(IAudioSessionService sessions)
+    {
+        _sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
+    }
+
+    public IReadOnlyList<AudioSessionInfo> GetSessions(string processName) => _sessions.GetSessions(processName);
+
+    public MuteSummary GetMuteSummary(string processName)
+    {
+        var sessions = _sessions.GetSessions(processName);
+        if (sessions.Count == 0)
+        {
+            return MuteSummary.None;
+        }
+
+        return new MuteSummary(
+            HasSession: true,
+            SessionCount: sessions.Count,
+            MutedCount: sessions.Count(s => s.IsMuted),
+            EndpointCount: sessions.Select(s => s.DeviceId).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+}

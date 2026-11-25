@@ -1,5 +1,65 @@
 # game-audio-manager
 
+Windows 上でアプリ・ゲームごとの音声出力先とミュートを切り替える常駐アプリです。
+
+- 起動中のアプリを一覧に出し、行ごとに出力先を変更・ミュート・自動適用の ON/OFF ができます
+- 登録したアプリはトレイ常駐のまま出力先を自動で維持します（ウィンドウを閉じても継続）
+- アプリ別の出力先設定は **追加のツールなし** で行います（Windows の音声ポリシー API を使用）
+
+![アプリ一覧](docs/images/dotnet-app-list.png)
+
+## 入手する（デスクトップアプリ版・推奨）
+
+1. [Releases](https://github.com/tonbiattack/game-audio-manager/releases) から最新の `game-audio-manager-<version>-win-x64.zip` をダウンロードします
+2. 任意のフォルダへ展開します（例: `C:\apps\GameAudioManager`）
+3. `GameAudioManager.exe` を実行します
+
+.NET ランタイムのインストールは不要です（自己完結ビルド）。
+
+- **署名について**: コード署名を行っていないため、初回起動時に SmartScreen の警告が出ることがあります。
+  「詳細情報」→「実行」で起動できます
+- **設定の保存先**: `%LOCALAPPDATA%\GameAudioManager\settings.json`
+- **アンインストール**: 実行ファイルを削除し、`%LOCALAPPDATA%\GameAudioManager` を削除します。
+  「ログオン時に自動起動」を有効にしていた場合は、先にアプリ上でオフにしてください
+
+### 使い方
+
+| 操作 | 説明 |
+| --- | --- |
+| 一覧 | 起動中のアプリを表示。ウィンドウを持たないプロセスは対象外です |
+| 検索 | アプリ名・プロセス名で絞り込みます |
+| 出力先 | 接続中のデバイスから選び「適用」します |
+| ミュート | 1クリックで切り替え。混在状態は `混在 (n)` と表示します |
+| 自動 | ON のアプリは出力先を自動で維持します |
+| 優先デバイス順 | 右側の一覧で候補と順序を編集できます。上ほど優先されます |
+| 自動適用を停止 / 開始 | 常駐処理を一時停止・再開します |
+| ログオン時に自動起動 | チェックすると `HKCU\...\Run` に登録します（管理者権限不要） |
+
+ウィンドウを閉じても常駐は続きます。終了するにはタスクトレイのアイコンから「終了」を選びます。
+
+### 出力先の変更が反映されるタイミング
+
+Windows の仕様により、**出力先の変更は「次にそのアプリが音声セッションを作るとき」に反映されます**。
+再生中の音は自動では移動しません。アプリを再起動するか、ゲーム内で音声を出し直すと切り替わります。
+「既定の出力へ戻す」も同じです。
+
+## 開発
+
+```powershell
+dotnet build GameAudioManager.slnx -c Release
+dotnet test tests/GameAudioManager.Core.Tests/GameAudioManager.Core.Tests.csproj --no-build -c Release
+./scripts/publish.ps1 -Version 0.2.0        # 自己完結 EXE を artifacts/win-x64 に生成
+```
+
+技術検証の記録（音声ポリシー API の使い方、MSIX/EXE/MSI の比較、決定事項）は
+[docs/dotnet-migration.md](docs/dotnet-migration.md) にあります。
+
+---
+
+# PowerShell 版（レガシー）
+
+以前の PowerShell + WinForms 実装です。引き続き利用できますが、新機能はデスクトップアプリ版にのみ追加されます。
+
 Windows 上でアプリ・ゲームごとの音声出力先とミュートを切り替える PowerShell ツールです。
 GUI から選ぶ方法と、コマンドで指定する方法の両方を用意しています。
 
@@ -11,7 +71,7 @@ GUI から選ぶ方法と、コマンドで指定する方法の両方を用意�
 
 ### Release の ZIP を使う（通常の利用）
 
-1. [Releases](https://github.com/tonbiattack/game-audio-manager/releases) から最新の ZIP をダウンロードします
+1. [Releases](https://github.com/tonbiattack/game-audio-manager/releases) から PowerShell 版の ZIP をダウンロードします
 2. 任意のフォルダへ展開します（例: `C:\apps\game-audio-manager`）
 3. 展開したフォルダで PowerShell を開き、次を実行します
 
