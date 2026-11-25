@@ -1,0 +1,39 @@
+name: dotnet-tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dotnet:
+    name: .NET build and tests (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore GameAudioManager.slnx
+
+      - name: Build
+        shell: pwsh
+        run: dotnet build GameAudioManager.slnx --no-restore --configuration Release -warnaserror
+
+      - name: Test
+        shell: pwsh
+        run: dotnet test tests/GameAudioManager.Core.Tests/GameAudioManager.Core.Tests.csproj --no-build --configuration Release --logger "console;verbosity=normal"
+
+      # The Core tests are deliberately device-independent: CI runners have no
+      # audio endpoints. Anything that needs a real device is verified by hand
+      # using the checklist in docs/dotnet-migration.md.
