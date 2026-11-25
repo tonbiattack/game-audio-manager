@@ -6,12 +6,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <!-- WinForms is only used for the tray icon (NotifyIcon). -->
+    <UseWindowsForms>true</UseWindowsForms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>GameAudioManager</AssemblyName>
     <RootNamespace>GameAudioManager.App</RootNamespace>
     <Platforms>x64</Platforms>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <SatelliteResourceLanguages>ja;en</SatelliteResourceLanguages>
+    <!-- WPF handles DPI through app.manifest; the WinForms advisory does not apply. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,3 +23,5 @@
   </ItemGroup>
 
 </Project>
+
+
