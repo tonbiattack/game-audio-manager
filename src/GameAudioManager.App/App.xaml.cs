@@ -24,6 +24,7 @@ public partial class App : System.Windows.Application
     private NotifyIcon? _trayIcon;
     private MainWindow? _window;
     private DeviceChangeWatcher? _deviceWatcher;
+    private Microsoft.Win32.PowerModeChangedEventHandler? _powerModeHandler;
 
     /// <summary>True once the user chose to quit, so the window may really close.</summary>
     public static bool IsExiting { get; private set; }
@@ -78,13 +79,16 @@ public partial class App : System.Windows.Application
     {
         _deviceWatcher = new DeviceChangeWatcher(viewModel.OnExternalChange);
 
-        Microsoft.Win32.SystemEvents.PowerModeChanged += (_, e) =>
+        // Keep the delegate so it can be removed on exit; a leaked subscription keeps
+        // the view model alive and fires into a disposed watcher.
+        _powerModeHandler = (_, e) =>
         {
             if (e.Mode == Microsoft.Win32.PowerModes.Resume)
             {
                 viewModel.OnExternalChange();
             }
         };
+        Microsoft.Win32.SystemEvents.PowerModeChanged += _powerModeHandler;
     }
 
     /// <summary>Brings the window back from the tray.</summary>
@@ -163,6 +167,8 @@ public partial class App : System.Windows.Application
         Shutdown();
     }
 }
+
+
 
 
 

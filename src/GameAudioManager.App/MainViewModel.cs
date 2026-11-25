@@ -218,6 +218,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         string gamesJsonPath,
         string? settingsJsonPath = null)
     {
+        // Preserve the existing settings first: an import must never be able to lose them.
+        var backupPath = _store.Backup();
+
         var result = await Task.Run(() => LegacyImporter.Import(gamesJsonPath, settingsJsonPath, _devices))
             .ConfigureAwait(true);
 
@@ -250,6 +253,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         RefreshFromWatcher();
 
         StatusMessage = $"旧設定を取り込みました: 追加 {added} 件 / 統合 {merged} 件" +
+            (backupPath is null ? string.Empty : $"（既存設定を {System.IO.Path.GetFileName(backupPath)} に退避）") +
             (result.UnresolvedDevices.Count > 0
                 ? $"（デバイス未接続のため名前のまま保持: {result.UnresolvedDevices.Count} 件）"
                 : string.Empty);
@@ -750,6 +754,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void OnPropertyChanged(string? name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
+
 
 
 
