@@ -1,6 +1,14 @@
 # Third-party notices
 
-This repository bundles the following unmodified files from the 64-bit
+## Desktop app (.NET / WPF)
+
+The desktop application does not bundle any third-party executables. Per-application
+audio routing uses the Windows audio policy API, and device/session control uses the
+Windows Core Audio API, both provided by the operating system.
+
+## PowerShell version (legacy)
+
+The PowerShell version bundles the following unmodified files from the 64-bit
 SoundVolumeCommandLine v1.28 distribution, located in `vendor/svcl/`:
 
 - `vendor/svcl/svcl.exe`
@@ -15,5 +23,13 @@ all files in the distribution package without modification.
 See the official project page and full terms:
 <https://www.nirsoft.net/utils/sound_volume_command_line.html>
 
-The PowerShell source and documentation authored for Game Audio Manager are
-licensed under the repository's [MIT License](LICENSE).
+These files are **not** used or redistributed by the desktop app.
+
+## New Fonts / icons
+
+The desktop app uses only the built-in Windows theme resources and system icons.
+
+## Repository licence
+
+The PowerShell source, C# source and documentation authored for Game Audio Manager
+are licensed under the repository's [MIT License](LICENSE).

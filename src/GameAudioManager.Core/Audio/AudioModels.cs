@@ -132,3 +132,13 @@ public sealed class SessionQuery : ISessionQuery
             EndpointCount: sessions.Select(s => s.DeviceId).Distinct(StringComparer.OrdinalIgnoreCase).Count());
     }
 }
+/// <summary>
+/// Optional capability a routing implementation can report so the UI can explain
+/// why routing is unavailable instead of failing per action.
+/// </summary>
+public interface IRoutingCapability
+{
+    bool IsAvailable { get; }
+
+    string UnavailableMessage { get; }
+}
