@@ -62,7 +62,60 @@ public partial class MainWindow : Window
     }
 
 
+    private async void OnPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        var ctrl = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0;
+        switch (e.Key)
+        {
+            case System.Windows.Input.Key.F5:
+                await _viewModel.RefreshAsync();
+                e.Handled = true;
+                break;
+            case System.Windows.Input.Key.F when ctrl:
+                FilterBox.Focus();
+                FilterBox.SelectAll();
+                e.Handled = true;
+                break;
+            case System.Windows.Input.Key.M when ctrl:
+                await _viewModel.ToggleMuteAsync();
+                e.Handled = true;
+                break;
+            case System.Windows.Input.Key.OemComma when ctrl:
+                _viewModel.ToggleWatcher();
+                e.Handled = true;
+                break;
+            case System.Windows.Input.Key.Escape when FilterBox.IsKeyboardFocusWithin:
+                _viewModel.FilterText = string.Empty;
+                AppList.Focus();
+                e.Handled = true;
+                break;
+        }
+    }
+
     private async void OnRefresh(object sender, RoutedEventArgs e) => await _viewModel.RefreshAsync();
+
+    private async void OnImportLegacy(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "旧バージョンの games.json を選択",
+            Filter = "games.json|games.json|JSON|*.json|すべてのファイル|*.*",
+            CheckFileExists = true,
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var result = await _viewModel.ImportLegacyAsync(dialog.FileName);
+        System.Windows.MessageBox.Show(
+            this,
+            $"追加: {result.Added} 件\n統合: {result.Merged} 件\n未接続で名前のまま保持: {result.Unresolved.Count} 件",
+            "旧設定の取り込み",
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Information);
+    }
 
     private void OnToggleWatcher(object sender, RoutedEventArgs e) => _viewModel.ToggleWatcher();
 
@@ -91,5 +144,7 @@ public partial class MainWindow : Window
     private void OnMovePriorityDown(object sender, RoutedEventArgs e) =>
         _viewModel.MovePriorityDeviceAt(PriorityList.SelectedIndex, 1);
 }
+
+
 
 

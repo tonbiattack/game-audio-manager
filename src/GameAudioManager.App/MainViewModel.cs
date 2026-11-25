@@ -172,6 +172,91 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public bool WatcherRunning => _watcher.IsRunning;
 
+    /// <summary>True when the dark palette is active.</summary>
+    public bool IsDarkTheme
+    {
+        get => string.Equals(Settings.Theme, ThemeNames.Dark, StringComparison.OrdinalIgnoreCase);
+        set
+        {
+            var theme = value ? ThemeNames.Dark : ThemeNames.Light;
+            if (string.Equals(Settings.Theme, theme, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            Settings.Theme = theme;
+            ThemeManager.Apply(theme);
+            SaveSettings();
+            OnPropertyChanged(nameof(IsDarkTheme));
+            StatusMessage = value ? "ダークテーマに切り替えました。" : "ライトテーマに切り替えました。";
+        }
+    }
+
+    /// <summary>
+    /// Called when the OS reports a device or power change. Re-runs the watcher so a
+    /// reconnected headset or a resume from sleep is picked up immediately instead of
+    /// at the next poll.
+    /// </summary>
+    public void OnExternalChange()
+    {
+        _dispatcher.BeginInvoke(() =>
+        {
+            _watcher.TriggerNow();
+            RefreshFromWatcher();
+        });
+    }
+
+    /// <summary>
+    /// Imports rules from the legacy PowerShell <c>games.json</c>.
+    /// </summary>
+    /// <remarks>
+    /// Device names are resolved to device ids where the device is present; names that
+    /// cannot be resolved are kept verbatim so a rule for an unplugged headset survives
+    /// the migration. Existing rules for the same process are merged, not duplicated.
+    /// </remarks>
+    public async Task<(int Added, int Merged, IReadOnlyList<string> Unresolved)> ImportLegacyAsync(
+        string gamesJsonPath,
+        string? settingsJsonPath = null)
+    {
+        var result = await Task.Run(() => LegacyImporter.Import(gamesJsonPath, settingsJsonPath, _devices))
+            .ConfigureAwait(true);
+
+        var added = 0;
+        var merged = 0;
+        foreach (var incoming in result.Settings.Rules)
+        {
+            var existing = FindRule(incoming.ProcessName);
+            if (existing is null)
+            {
+                Settings.Rules.Add(incoming);
+                added++;
+                continue;
+            }
+
+            foreach (var deviceId in incoming.OutputDeviceIds)
+            {
+                var updated = DevicePriority.Add(existing.OutputDeviceIds, deviceId);
+                existing.OutputDeviceIds.Clear();
+                existing.OutputDeviceIds.AddRange(updated);
+            }
+
+            merged++;
+        }
+
+        Settings.WatchIntervalSeconds = Math.Clamp(result.Settings.WatchIntervalSeconds, 1, 3600);
+        SaveSettings();
+        _watcher.UpdateSettings(Settings);
+        _watcher.TriggerNow();
+        RefreshFromWatcher();
+
+        StatusMessage = $"旧設定を取り込みました: 追加 {added} 件 / 統合 {merged} 件" +
+            (result.UnresolvedDevices.Count > 0
+                ? $"（デバイス未接続のため名前のまま保持: {result.UnresolvedDevices.Count} 件）"
+                : string.Empty);
+
+        return (added, merged, result.UnresolvedDevices);
+    }
+
     public string SelectedAppSummary => _selectedApp is null
         ? string.Empty
         : $"{_selectedApp.DisplayName}: {_selectedApp.StateText} / ミュート {_selectedApp.MuteText}";
@@ -665,6 +750,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void OnPropertyChanged(string? name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
+
+
 
 
 

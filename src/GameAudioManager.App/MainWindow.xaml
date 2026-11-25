@@ -5,7 +5,8 @@
         Height="700" Width="1180"
         MinHeight="520" MinWidth="900"
         UseLayoutRounding="True"
-        Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource AppForegroundBrush}">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -29,6 +30,9 @@
                       IsChecked="{Binding ShowNotRunning, Mode=TwoWay}" />
             <Button Content="更新" Width="80" Height="28" Margin="18,0,0,0" Click="OnRefresh" />
             <Button x:Name="WatcherButton" Content="自動適用を停止" Width="130" Height="28" Margin="8,0,0,0" Click="OnToggleWatcher" />
+            <CheckBox Content="ダークテーマ" Margin="16,0,0,0" VerticalAlignment="Center"
+                      IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" />
+            <Button Content="旧設定を取り込む…" Width="130" Height="28" Margin="12,0,0,0" Click="OnImportLegacy" />
         </StackPanel>
 
         <!-- list -->
@@ -37,6 +41,9 @@
                   ItemsSource="{Binding AppsView}"
                   SelectedItem="{Binding SelectedApp, Mode=TwoWay}"
                   SelectionMode="Single"
+                  Background="{DynamicResource AppBackgroundBrush}"
+                  Foreground="{DynamicResource AppForegroundBrush}"
+                  BorderBrush="{DynamicResource AppBorderBrush}"
                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListView.View>
                 <GridView>
@@ -60,8 +67,8 @@
         </ListView>
 
         <!-- priority editor -->
-        <Border Grid.Row="1" Grid.Column="1" Width="290" Margin="12,0,0,0" Padding="10" BorderThickness="1" CornerRadius="4"
-                BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}">
+        <Border Grid.Row="1" Grid.Column="1" Width="290" Margin="12,0,0,0" Padding="10" BorderThickness="1" CornerRadius="4" Background="{DynamicResource AppPanelBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -72,7 +79,9 @@
 
                 <TextBlock Grid.Row="0" Text="優先デバイス順（上が優先）" FontWeight="SemiBold" Margin="0,0,0,6" />
 
-                <ListBox Grid.Row="1" x:Name="PriorityList" ItemsSource="{Binding PriorityDeviceNames}" />
+                <ListBox Grid.Row="1" x:Name="PriorityList" ItemsSource="{Binding PriorityDeviceNames}"
+                         Background="{DynamicResource AppBackgroundBrush}"
+                         Foreground="{DynamicResource AppForegroundBrush}" />
 
                 <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
                     <Button Content="候補に追加" Width="100" Height="26" Click="OnAddPriority" />
@@ -86,8 +95,8 @@
         </Border>
 
         <!-- actions -->
-        <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="0,12,0,0" Padding="12" BorderThickness="1" CornerRadius="4"
-                BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}">
+        <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="0,12,0,0" Padding="12" BorderThickness="1" CornerRadius="4" Background="{DynamicResource AppPanelBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -123,5 +132,7 @@
                    TextWrapping="Wrap" MinHeight="34" VerticalAlignment="Top" />
     </Grid>
 </Window>
+
+
 
 
