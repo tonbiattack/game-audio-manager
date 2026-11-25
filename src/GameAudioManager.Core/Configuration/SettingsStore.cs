@@ -55,6 +55,27 @@ public sealed class SettingsStore
         }
     }
 
+    /// <summary>
+    /// Copies the current settings file next to itself with a timestamp suffix.
+    /// </summary>
+    /// <returns>The backup path, or null when there was nothing to back up.</returns>
+    /// <remarks>
+    /// Used before importing another configuration so a bad import cannot destroy the
+    /// user's existing rules.
+    /// </remarks>
+    public string? Backup()
+    {
+        if (!File.Exists(_path))
+        {
+            return null;
+        }
+
+        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+        var backupPath = _path + "." + stamp + ".bak";
+        File.Copy(_path, backupPath, overwrite: true);
+        return backupPath;
+    }
+
     public void Save(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -87,3 +108,4 @@ public sealed class SettingsStore
         }
     }
 }
+
