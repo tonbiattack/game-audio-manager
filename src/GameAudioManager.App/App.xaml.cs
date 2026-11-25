@@ -38,10 +38,14 @@ public partial class App : System.Windows.Application
         _singleInstance = SingleInstanceGuard.Acquire();
         if (!_singleInstance.IsFirstInstance)
         {
-            // A second copy would fight over the same rules; just exit.
+            // The app lives in the tray, so exiting silently looks like a failed launch.
+            // Ask the running instance to show its window, then exit.
+            SingleInstanceGuard.SignalRunningInstance();
             Shutdown();
             return;
         }
+
+        _singleInstance.ListenForActivation(() => Dispatcher.BeginInvoke(ShowMainWindow));
 
         var devices = new CoreAudioDeviceService();
         var sessions = new CoreAudioSessionService();
@@ -181,6 +185,32 @@ public partial class App : System.Windows.Application
         return System.Drawing.SystemIcons.Application;
     }
 
+    private bool _trayHintShown;
+
+    /// <summary>
+    /// Shows a one-time balloon explaining that closing the window keeps the app in
+    /// the tray. Without it, a hidden window is indistinguishable from a crash.
+    /// </summary>
+    public static void NotifyHiddenToTray()
+    {
+        if (Current is not App { _trayIcon: { } icon } app || app._trayHintShown)
+        {
+            return;
+        }
+
+        app._trayHintShown = true;
+        try
+        {
+            icon.BalloonTipTitle = Localization.Instance["TrayHintTitle"];
+            icon.BalloonTipText = Localization.Instance["TrayHintText"];
+            icon.ShowBalloonTip(4000);
+        }
+        catch (Exception)
+        {
+            // Balloon tips can be disabled by policy; not worth failing over.
+        }
+    }
+
     private void Quit()
     {
         IsExiting = true;
@@ -189,6 +219,8 @@ public partial class App : System.Windows.Application
         Shutdown();
     }
 }
+
+
 
 
 

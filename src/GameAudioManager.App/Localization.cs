@@ -165,6 +165,10 @@ public sealed class Localization : INotifyPropertyChanged
             ["TrayOpen"] = ("開く", "Open"),
             ["TrayExit"] = ("終了", "Exit"),
             ["TrayTooltip"] = ("Game Audio Manager", "Game Audio Manager"),
+            ["TrayHintTitle"] = ("タスクトレイに常駐しています", "Still running in the tray"),
+            ["TrayHintText"] = (
+                "ウィンドウを閉じても自動適用は続きます。もう一度起動するとこの画面が開きます。終了はトレイのアイコンから「終了」を選んでください。",
+                "Auto-apply keeps running after you close the window. Launch the app again to reopen this window. To quit, right-click the tray icon and choose Exit."),
         };
 
     private string _language = English;
@@ -251,5 +255,6 @@ public sealed class Localization : INotifyPropertyChanged
     private static void Raise([CallerMemberName] string? name = null) =>
         Instance.PropertyChanged?.Invoke(Instance, new PropertyChangedEventArgs(name));
 }
+
 
 

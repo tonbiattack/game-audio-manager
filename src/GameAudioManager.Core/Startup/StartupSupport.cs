@@ -5,12 +5,20 @@ using Microsoft.Win32;
 namespace GameAudioManager.Core.Startup;
 
 /// <summary>
-/// Prevents a second copy of the app from running.
+/// Prevents a second copy of the app from running, and wakes the first one instead.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Two copies would both poll and both write routing, producing confusing fights over
 /// the same app. A named mutex in the per-user namespace is the simplest reliable
 /// guard on Windows.
+/// </para>
+/// <para>
+/// The app lives in the tray, so a second launch would otherwise look like "nothing
+/// happened": the new process exits and the existing window stays hidden. The second
+/// instance therefore signals a named event and the first instance brings its window
+/// to the front.
+/// </para>
 /// </remarks>
 public sealed class SingleInstanceGuard : IDisposable
 {
@@ -41,6 +49,68 @@ public sealed class SingleInstanceGuard : IDisposable
         return new SingleInstanceGuard(mutex, isFirstInstance: true);
     }
 
+    /// <summary>Name of the event a second instance uses to ask for the window.</summary>
+    public static string GetActivationEventName(string name = "GameAudioManager.SingleInstance")
+    {
+        return @"Local\" + name + ".Activate";
+    }
+
+    /// <summary>
+    /// Called by the second instance: asks the running instance to show its window.
+    /// Best effort; the caller exits either way.
+    /// </summary>
+    public static void SignalRunningInstance(string name = "GameAudioManager.SingleInstance")
+    {
+        try
+        {
+            using var handle = EventWaitHandle.OpenExisting(GetActivationEventName(name));
+            handle.Set();
+        }
+        catch (WaitHandleCannotBeOpenedException)
+        {
+            // The other instance is starting up or already gone; nothing to wake.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Different integrity level; ignore.
+        }
+    }
+
+    /// <summary>
+    /// Starts a background listener that invokes <paramref name="onActivate"/> whenever
+    /// another instance asks for the window. Returns the thread so it can be stopped.
+    /// </summary>
+    public Thread ListenForActivation(Action onActivate, string name = "GameAudioManager.SingleInstance")
+    {
+        ArgumentNullException.ThrowIfNull(onActivate);
+
+        var handle = new EventWaitHandle(false, EventResetMode.AutoReset, GetActivationEventName(name));
+        var thread = new Thread(() =>
+        {
+            while (!_disposed)
+            {
+                try
+                {
+                    if (handle.WaitOne(500))
+                    {
+                        onActivate();
+                    }
+                }
+                catch (ObjectDisposedException)
+                {
+                    return;
+                }
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "GameAudioManager.ActivationListener",
+        };
+
+        thread.Start();
+        return thread;
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -59,16 +129,6 @@ public sealed class SingleInstanceGuard : IDisposable
         }
 
         _mutex.Dispose();
-    }
-
-    /// <summary>
-    /// Stable name for the "already running" broadcast. Message filters need a value
-    /// derived from the mutex name so both copies agree.
-    /// </summary>
-    public static string GetActivationMessageName(string name = "GameAudioManager.SingleInstance")
-    {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(name));
-        return "GameAudioManager.Activate." + Convert.ToHexString(hash.AsSpan(0, 8));
     }
 }
 
@@ -108,3 +168,4 @@ public static class AutoStartRegistration
         key?.DeleteValue(valueName ?? DefaultValueName, throwOnMissingValue: false);
     }
 }
+

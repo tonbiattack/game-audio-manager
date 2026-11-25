@@ -70,14 +70,38 @@ public sealed class StartupSupportTests : IDisposable
     }
 
     [Fact]
-    public void SingleInstance_ActivationMessageNameIsStable()
+    public void SignalRunningInstance_IsSafeWhenNoInstanceIsListening()
     {
-        var a = SingleInstanceGuard.GetActivationMessageName("x");
-        var b = SingleInstanceGuard.GetActivationMessageName("x");
-        var c = SingleInstanceGuard.GetActivationMessageName("y");
+        // Must not throw: the second instance exits either way.
+        SingleInstanceGuard.SignalRunningInstance("GameAudioManager.Tests.NoListener");
+    }
+
+    [Fact]
+    public void ListenForActivation_InvokesCallbackWhenSignalled()
+    {
+        const string name = "GameAudioManager.Tests.Activate";
+        using var guard = SingleInstanceGuard.Acquire(name);
+        Assert.True(guard.IsFirstInstance);
+
+        using var signalled = new ManualResetEventSlim();
+        var thread = guard.ListenForActivation(() => signalled.Set(), name);
+        Assert.NotNull(thread);
+
+        SingleInstanceGuard.SignalRunningInstance(name);
+
+        Assert.True(signalled.Wait(TimeSpan.FromSeconds(5)), "The activation callback must run when signalled.");
+    }
+
+    [Fact]
+    public void SingleInstance_ActivationEventNameIsStable()
+    {
+        var a = SingleInstanceGuard.GetActivationEventName("x");
+        var b = SingleInstanceGuard.GetActivationEventName("x");
+        var c = SingleInstanceGuard.GetActivationEventName("y");
 
         Assert.Equal(a, b);
         Assert.NotEqual(a, c);
-        Assert.StartsWith("GameAudioManager.Activate.", a, StringComparison.Ordinal);
+        Assert.Contains("Activate", a, StringComparison.Ordinal);
     }
 }
+
