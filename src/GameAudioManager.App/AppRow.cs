@@ -32,6 +32,9 @@ public sealed class AppRow : INotifyPropertyChanged
 
     public string ProcessName => _status.ProcessName;
 
+    /// <summary>Executable icon, or null when it cannot be read.</summary>
+    public System.Windows.Media.Imaging.BitmapSource? Icon => AppIconCache.GetIcon(_status.ProcessName);
+
     public string DisplayName => _status.DisplayName;
 
     public RoutingStatus Status => _status;
@@ -76,9 +79,27 @@ public sealed class AppRow : INotifyPropertyChanged
         _ => Localization.Instance["MuteOff"],
     };
 
-    public string DeviceText => _status.AppliedDeviceName
-        ?? _status.DestinationDeviceId
-        ?? Localization.Instance["DefaultOutput"];
+    /// <summary>
+    /// Human-readable output device. A configured device that is not connected is
+    /// reported as such instead of leaking the raw device id into the grid.
+    /// </summary>
+    public string DeviceText
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(_status.AppliedDeviceName))
+            {
+                return _status.AppliedDeviceName!;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_status.DestinationDeviceId))
+            {
+                return Localization.Instance["DeviceNotConnected"];
+            }
+
+            return Localization.Instance["DefaultOutput"];
+        }
+    }
 
     /// <summary>Re-reads every localized label after a language change.</summary>
     public void RefreshLocalization()
@@ -135,6 +156,8 @@ public sealed class AppRow : INotifyPropertyChanged
 
     private void Raise(string? name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
+
+
 
 
 
