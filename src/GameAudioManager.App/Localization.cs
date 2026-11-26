@@ -41,7 +41,6 @@ public sealed class Localization : INotifyPropertyChanged
             ["ThemeLight"] = ("ライト", "Light"),
             ["ThemeDark"] = ("ダーク", "Dark"),
             ["Language"] = ("言語", "Language"),
-            ["ImportLegacy"] = ("旧設定を取り込む…", "Import old settings…"),
 
             // list columns
             ["ColumnApp"] = ("アプリ", "Application"),
@@ -111,21 +110,6 @@ public sealed class Localization : INotifyPropertyChanged
             ["StatusAutoApplyOn"] = ("{0}: 自動適用を有効にしました。", "{0}: auto-apply enabled."),
             ["StatusAutoApplyOff"] = ("{0}: 自動適用を無効にしました。", "{0}: auto-apply disabled."),
             ["StatusApplied"] = ("{0} → {1}。{2}", "{0} → {1}. {2}"),
-            ["StatusImportResult"] = (
-                "旧設定を取り込みました: 追加 {0} 件 / 統合 {1} 件",
-                "Imported old settings: {0} added, {1} merged"),
-            ["StatusImportBackup"] = (
-                "（既存設定を {0} に退避）",
-                " (previous settings saved as {0})"),
-            ["StatusImportUnresolved"] = (
-                "（デバイス未接続のため名前のまま保持: {0} 件）",
-                " ({0} device(s) kept by name because they are not connected)"),
-
-            // dialogs
-            ["ImportDialogTitle"] = ("旧バージョンの games.json を選択", "Select the previous games.json"),
-            ["ImportDialogFilter"] = ("games.json|games.json|JSON|*.json|すべてのファイル|*.*", "games.json|games.json|JSON|*.json|All files|*.*"),
-            ["ImportResultTitle"] = ("旧設定の取り込み", "Import result"),
-            ["ImportResultBody"] = ("追加: {0} 件\n統合: {1} 件\n未接続で名前のまま保持: {2} 件", "Added: {0}\nMerged: {1}\nKept by name (not connected): {2}"),
 
             // help window
             ["Help"] = ("使い方", "How to use"),

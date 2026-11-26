@@ -240,30 +240,6 @@ public partial class MainWindow : Window
 
     private void OnMovePriorityDown(object sender, RoutedEventArgs e) =>
         _viewModel.MovePriorityDeviceAt(PriorityList.SelectedIndex, 1);
-
-    private async void OnImportLegacy(object sender, RoutedEventArgs e)
-    {
-        var loc = Localization.Instance;
-        var dialog = new Microsoft.Win32.OpenFileDialog
-        {
-            Title = loc["ImportDialogTitle"],
-            Filter = loc["ImportDialogFilter"],
-            CheckFileExists = true,
-        };
-
-        if (dialog.ShowDialog(this) != true)
-        {
-            return;
-        }
-
-        var result = await _viewModel.ImportLegacyAsync(dialog.FileName);
-        System.Windows.MessageBox.Show(
-            this,
-            loc.Format("ImportResultBody", result.Added, result.Merged, result.Unresolved.Count),
-            loc["ImportResultTitle"],
-            System.Windows.MessageBoxButton.OK,
-            System.Windows.MessageBoxImage.Information);
-    }
 }
 
 
