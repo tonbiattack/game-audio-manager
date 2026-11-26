@@ -47,7 +47,7 @@
             <!-- The label sits next to the box; docking it right detached it on wide windows. -->
             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal"
                         Margin="20,0,0,0" VerticalAlignment="Center">
-                <TextBox x:Name="FilterBox" Width="240" Height="30"
+                <TextBox x:Name="FilterBox" Width="240" MinHeight="32"
                          VerticalContentAlignment="Center"
                          Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                          ToolTip="{Binding [Search], Source={x:Static app:Localization.Instance}}" />
@@ -72,14 +72,12 @@
                 <TextBlock VerticalAlignment="Center" Margin="0,0,6,0"
                            Foreground="{DynamicResource AppSubtleBrush}"
                            Text="{Binding [Theme], Source={x:Static app:Localization.Instance}}" />
-                <ComboBox x:Name="ThemeCombo" Width="120" Height="30"
-                          VerticalContentAlignment="Center"
+                <ComboBox x:Name="ThemeCombo" Width="120" MinHeight="32"
                           SelectionChanged="OnThemeChanged" />
                 <TextBlock VerticalAlignment="Center" Margin="16,0,6,0"
                            Foreground="{DynamicResource AppSubtleBrush}"
                            Text="{Binding [Language], Source={x:Static app:Localization.Instance}}" />
-                <ComboBox x:Name="LanguageCombo" Width="120" Height="30"
-                          VerticalContentAlignment="Center"
+                <ComboBox x:Name="LanguageCombo" Width="120" MinHeight="32"
                           SelectionChanged="OnLanguageChanged" />
                 <ui:Button Margin="16,0,0,0" Height="30" MinWidth="140"
                            Content="{Binding [ImportLegacy], Source={x:Static app:Localization.Instance}}"
@@ -137,7 +135,7 @@
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn Width="150"
+                    <GridViewColumn Width="200"
                                     Header="{Binding [ColumnProcess], Source={x:Static app:Localization.Instance}}"
                                     DisplayMemberBinding="{Binding ProcessName}" />
                 </GridView>
@@ -210,7 +208,7 @@
                               SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
                               DisplayMemberPath="Name"
                               MinWidth="240" MaxWidth="520" Width="360"
-                              Height="32" VerticalContentAlignment="Center" />
+                              MinHeight="32" />
                     <ui:Button x:Name="ApplyButton" MinWidth="90" Height="32" Margin="8,0,0,0"
                                Content="{Binding [Apply], Source={x:Static app:Localization.Instance}}"
                                Click="OnApply" />
@@ -239,5 +237,7 @@
                    TextWrapping="Wrap" MinHeight="36" VerticalAlignment="Top" />
     </Grid>
 </Window>
+
+
 
 
