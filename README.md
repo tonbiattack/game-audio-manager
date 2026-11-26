@@ -49,7 +49,6 @@ Windows 上でアプリ・ゲームごとの音声出力先とミュートを切
 | テーマ | システム / ライト / ダークを切り替えます。設定は次回起動時にも保持されます |
 | 言語 | 日本語 / English を切り替えます（既定は OS の UI 言語） |
 | 使い方 | アプリ内の操作ガイドを開きます（`F1` でも開けます） |
-| 旧設定を取り込む… | 旧 PowerShell 版の `games.json` を取り込みます（下記「移行」参照） |
 
 ### キーボードショートカット
 
@@ -155,9 +154,8 @@ dotnet test tests/GameAudioManager.Core.Tests/GameAudioManager.Core.Tests.csproj
 
 2. **デスクトップアプリ版を起動**し、一覧から対象アプリを選び直します。
 
-   旧設定を取り込む場合は、画面上部の「旧設定を取り込む…」で旧 `config/games.json` を選びます。
-   デバイス名は接続中のデバイスの ID に解決され、未接続のデバイスは名前のまま保持されます。
-   同じアプリのルールは統合され、重複しません。
+   旧版の設定は自動では引き継ぎません。**画面から選び直してください**（数件なら数クリックで済みます）。
+   旧 `games.json` の内容は下記「設定の対応」を参照してください。
 
    - 出力先: ドロップダウンから選んで「適用」
    - 優先順位: 右側の「優先デバイス順」で候補を追加・並べ替え
@@ -177,8 +175,8 @@ dotnet test tests/GameAudioManager.Core.Tests/GameAudioManager.Core.Tests.csproj
 | — | `rules[].autoApply`（新規） |
 
 デバイス名は変更・重複しうるため、新版は ID で保存します。
-旧設定の `LegacyImporter` による自動取り込みは Core に実装済みですが、UI からは未提供です
-（現状は画面から選び直すのが確実です）。
+そのため旧設定のデバイス名をそのまま持ち込むと誤ったデバイスに割り当たる可能性があり、
+**画面から選び直す方式**にしています（取り込み機能は提供していません）。
 
 ---
 
@@ -503,6 +501,7 @@ docs/                           補足ドキュメント
 音声出力の制御には NirSoft の SoundVolumeCommandLine を利用しています。
 `vendor/svcl/` にある `svcl.exe`、`svcl.chm`、`readme.txt` は同ツールの未改変の 64-bit 配布物であり、
 MIT License の対象外です。配布条件と著作権表記は [Third-party notices](THIRD_PARTY_NOTICES.md) を参照してください。
+
 
 
 

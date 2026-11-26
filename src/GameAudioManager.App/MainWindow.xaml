@@ -79,10 +79,7 @@
                            Text="{Binding [Language], Source={x:Static app:Localization.Instance}}" />
                 <ComboBox x:Name="LanguageCombo" Width="120" MinHeight="32"
                           SelectionChanged="OnLanguageChanged" />
-                <ui:Button Margin="16,0,0,0" Height="30" MinWidth="140"
-                           Content="{Binding [ImportLegacy], Source={x:Static app:Localization.Instance}}"
-                           Click="OnImportLegacy" />
-                <ui:Button Margin="8,0,0,0" Height="30" MinWidth="80"
+                <ui:Button Margin="16,0,0,0" Height="30" MinWidth="80"
                            Content="{Binding [Help], Source={x:Static app:Localization.Instance}}"
                            Click="OnOpenHelp" />
             </WrapPanel>
