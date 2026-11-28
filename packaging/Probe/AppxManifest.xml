@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <!--
+    Minimal package used to measure packaged behaviour for issue #39.
+    It carries the same identity model and capability as the real package
+    (full trust, no extra capabilities) so the result transfers.
+  -->
+  <Identity
+    Name="Tonbiattack.GameAudioManager.MsixProbe"
+    Publisher="CN=00000000-0000-0000-0000-000000000000"
+    Version="0.2.0.0"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Game Audio Manager MSIX probe</DisplayName>
+    <PublisherDisplayName>tonbiattack</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>Verification probe for issue #39. Reads state and calls the audio policy API.</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="ja-jp" />
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="MsixProbe" Executable="MsixProbe.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Game Audio Manager MSIX probe"
+        Description="Verification probe for issue #39"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png" />
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
