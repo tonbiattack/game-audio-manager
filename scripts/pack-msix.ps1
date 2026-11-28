@@ -20,7 +20,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Version = '0.2.0.0',
+    [string]$Version = '2.0.0.0',
     [string]$Publisher = 'CN=2F14A66E-02DF-43E2-93E0-5C5900B38D2E'
 )
 

@@ -20,7 +20,22 @@ Windows 上でアプリ・ゲームごとの音声出力先とミュートを切
 
 ![使い方](docs/images/dotnet-help.png)
 
-## 入手する（デスクトップアプリ版・推奨）
+## 入手する
+
+### Microsoft Store 版（MSIX）
+
+> **準備中です。** 公開後は Microsoft Store で「Game Audio Manager」を検索してください。
+
+ストア版は MSIX パッケージとして配布され、署名と更新は Microsoft Store が行います。
+管理者権限は不要です。
+
+- **設定の保存先**: `%LOCALAPPDATA%\Packages\<パッケージ ID>\LocalState\GameAudioManager\settings.json`
+- **アンインストール**: 設定も一緒に削除されます
+- **自動起動**: タスク マネージャーの「スタートアップ」に表示され、そこから無効化できます
+- GitHub Releases 版から切り替える場合は
+  [移行手順](#github-releases-版から-store-版msixへ移行する) を参照してください
+
+### デスクトップアプリ版（GitHub Releases）
 
 1. [Releases](https://github.com/tonbiattack/game-audio-manager/releases) から最新の `game-audio-manager-<version>-win-x64.zip` をダウンロードします
 2. 任意のフォルダへ展開します（例: `C:\apps\GameAudioManager`）
@@ -131,7 +146,9 @@ dotnet test tests/GameAudioManager.Core.Tests/GameAudioManager.Core.Tests.csproj
 - [docs/audio-policy-api.md](docs/audio-policy-api.md) — 非公開音声 API の検証マトリクスと既知の制限
 - [docs/performance.md](docs/performance.md) — 常駐時の CPU / メモリ計測
 - [docs/msix-verification.md](docs/msix-verification.md) — MSIX 内からの音声ルーティング実測と配布方式の決定
-- [docs/store-listing.md](docs/store-listing.md) — ストア掲載素材と公開手順
+- [docs/store-listing.md](docs/store-listing.md) — ストア掲載素材（説明文・スクリーンショット・アイコン）
+- [docs/store-submission.md](docs/store-submission.md) — Partner Center への提出手順とチェックリスト
+- [PRIVACY.md](PRIVACY.md) — プライバシーポリシー（Store 提出に必須）
 
 ## PowerShell 版から移行する
 

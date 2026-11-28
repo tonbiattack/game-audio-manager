@@ -37,3 +37,27 @@ jobs:
       # The Core tests are deliberately device-independent: CI runners have no
       # audio endpoints. Anything that needs a real device is verified by hand
       # using the checklist in docs/dotnet-migration.md.
+  msix:
+    name: MSIX package check (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # Publishing is the slow step, but a manifest that makeappx rejects is only
+      # discovered here or at tag time, so keep it on every pull request.
+      - name: Publish
+        shell: pwsh
+        run: ./scripts/publish.ps1 -Version 0.1.0
+
+      - name: Pack the MSIX
+        shell: pwsh
+        run: |
+          ./scripts/pack-msix.ps1 -Version 0.1.0.0
+          $package = Get-Item -LiteralPath artifacts/GameAudioManager.msix
+          Write-Host ('MSIX produced: {0:N1} MB' -f ($package.Length / 1MB))

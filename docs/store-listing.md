@@ -2,7 +2,9 @@
 
 最終更新: 2026-11-28
 
-対象 Issue: #35, #39
+対象 Issue: #35, #39, #58
+
+提出の手順は [store-submission.md](store-submission.md) を参照してください。
 
 ## 1. 現在の状態
 
@@ -112,7 +114,7 @@ Get-AppxPackage tonbiattack.GameAudioManager | Remove-AppxPackage
 詳細・出典・未確認点は [docs/msix-verification.md](msix-verification.md) を参照。
 **MSIX を選んでも審査通過は保証されません。** 非公開 API の扱いは提出時に個別判断となります。
 
-## 4. ストア掲載素材（下書き）
+## 4. ストア掲載素材
 
 ### 表示名
 
@@ -174,53 +176,56 @@ audio that is already playing does not move automatically.
 
 ユーティリティ / マルチメディア（Utilities）
 
+### ストア ロゴ・アイコン
+
+| 用途 | ファイル | サイズ |
+| --- | --- | --- |
+| ストア掲載アイコン（Partner Center でアップロード） | `docs/images/store/store-icon-300.png` | 300×300 |
+| パッケージ内ロゴ（マニフェストが参照） | `packaging/Package/Assets/StoreLogo.png` ほか | 50 / 44 / 150 |
+
 ### スクリーンショット
 
 | 用途 | ファイル | サイズ |
 | --- | --- | --- |
-| 日本語・ライト | `docs/images/dotnet-app-list.png` | 1200×720 |
-| 英語・ライト | `docs/images/dotnet-app-en.png` | 1200×720 |
-| 日本語・ダーク | `docs/images/dotnet-app-dark.png` | 1200×720 |
+| 日本語・ライト | `docs/images/store/store-ja-light.png` | 1920×1080 |
+| 日本語・ダーク | `docs/images/store/store-ja-dark.png` | 1920×1080 |
+| 英語・ライト | `docs/images/store/store-en-light.png` | 1920×1080 |
+| 英語・ダーク | `docs/images/store/store-en-dark.png` | 1920×1080 |
 
-**ストア申請用の画像は手動で撮り直す必要があります。**
+撮り直すときは:
 
-理由: 自動撮影（`PrintWindow` + ウィンドウのリサイズ）では、リサイズ直後の描画が
-確定せずヘッダー行とステータス行が欠けた画像になったためです。試行錯誤の末、
-自動化は断念しました（1280×720 の既存画像は正常）。
-
-手順:
-
-1. `GameAudioManager.exe` を起動し、ウィンドウを**最大化**する（1920×1080 環境を推奨）
-2. テーマと言語を目的の組み合わせにする（テーマ: ライト / ダーク、言語: 日本語 / English）
-3. `Win + PrtScn` で画面全体を撮る、または Alt+PrtScn でウィンドウだけを撮る
-4. 1920×1080 にトリミングして PNG で保存する
-
-最低 3 枚（日本語ライト・英語ライト・日本語ダーク）を用意する。ストアは最大 10 枚まで。
-
-### プライバシーポリシー（下書き）
-
-```
-Game Audio Manager は、利用者の個人情報を収集しません。
-
-・ネットワーク通信を行いません
-・音声の内容を録音・送信しません
-・設定は端末内（%LOCALAPPDATA%\GameAudioManager）にのみ保存します
-・音声デバイスとアプリの情報は、出力先を切り替える目的でのみ、端末内で参照します
-
-お問い合わせ: <リポジトリの Issues を記載>
+```powershell
+./scripts/publish.ps1 -Version 2.0.0
+./scripts/capture-store-screenshots.ps1
 ```
 
-## 5. 未完了（公開前に必要）
+ウィンドウを指定サイズ（既定 1920×1080）にしてから `PrintWindow` で撮り、
+テーマと言語を切り替えながら 4 枚を出します。設定ファイルは自動でバックアップ・復元されます。
+ストアは 1366×768 以上・最大 10 枚。
 
-- [x] MSIX の登録・起動・音声ルーティングの実測と記録（[docs/msix-verification.md](msix-verification.md)）
+### サポート・法務
+
+| 項目 | 値 |
+| --- | --- |
+| サポート URL | https://github.com/tonbiattack/game-audio-manager/issues |
+| プライバシー ポリシー | `PRIVACY.md`（https://github.com/tonbiattack/game-audio-manager/blob/main/PRIVACY.md） |
+| 著作権 | © 2026 tonbiattack |
+| ライセンス | MIT（`LICENSE`） |
+
+## 5. 公開までの状況
+
+提出の手順そのものは [store-submission.md](store-submission.md) にまとめています。
+
+- [x] MSIX の登録・起動・音声ルーティングの実測と記録（[msix-verification.md](msix-verification.md)）
 - [x] 配布方式の決定（MSIX を採用、EXE/MSI 方式は不採用）
-- [ ] 署名済み MSIX のインストール検証（**管理者権限が必要**。手順は上記）
-- [ ] Windows App Certification Kit の実行と結果記録（**管理者権限が必要**）
 - [x] MSIX 対応の改修: `StartupTask`（自動起動）、設定の保存先、単一インスタンスのミューテックス
+- [x] Publisher 名（Partner Center の正式値）をマニフェストへ反映（PFN の一致を実測）
+- [x] ストア用スクリーンショットの撮り直し（1920×1080 × 4、`scripts/capture-store-screenshots.ps1`）
+- [x] ストア掲載アイコン（300×300）の用意
+- [x] プライバシーポリシーの用意（[PRIVACY.md](../PRIVACY.md)）
+- [x] CI で MSIX を生成し、PR ごとにパッケージ生成を検証
+- [ ] 署名済み MSIX のインストール検証（**管理者権限が必要**）
+- [ ] Windows App Certification Kit の実行と結果記録（**管理者権限が必要**）
 - [ ] 非公開 API 利用のストアポリシー確認（10.2.8 の「unsupported ways」に当たるかは**未確定**。
       提出時の個別判断。EarTrumpet の前例あり）
-- [ ] ストア用スクリーンショットの解像度要件を満たす撮り直し
-- [ ] Publisher 名（Partner Center の正式値）をマニフェストへ反映
-- [ ] プライバシーポリシーの公開（Desktop Bridge 製品は必須）
-- [ ] 実際の申請（所有者の承認後）
-
+- [ ] Partner Center での入力と申請（**所有者の作業**。手順は store-submission.md）

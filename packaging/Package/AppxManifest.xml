@@ -9,7 +9,7 @@
   <Identity
     Name="tonbiattack.GameAudioManager"
     Publisher="CN=2F14A66E-02DF-43E2-93E0-5C5900B38D2E"
-    Version="0.2.0.0"
+    Version="2.0.0.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
