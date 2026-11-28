@@ -130,6 +130,7 @@ dotnet test tests/GameAudioManager.Core.Tests/GameAudioManager.Core.Tests.csproj
 - [docs/dotnet-migration.md](docs/dotnet-migration.md) — 移行の経緯、MSIX/EXE/MSI の比較、決定事項
 - [docs/audio-policy-api.md](docs/audio-policy-api.md) — 非公開音声 API の検証マトリクスと既知の制限
 - [docs/performance.md](docs/performance.md) — 常駐時の CPU / メモリ計測
+- [docs/msix-verification.md](docs/msix-verification.md) — MSIX 内からの音声ルーティング実測と配布方式の決定
 - [docs/store-listing.md](docs/store-listing.md) — ストア掲載素材と公開手順
 
 ## PowerShell 版から移行する

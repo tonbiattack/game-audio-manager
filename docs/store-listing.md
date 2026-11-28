@@ -1,10 +1,13 @@
 # ストア公開の準備
 
-最終更新: 2026-11-25
+最終更新: 2026-11-28
 
 対象 Issue: #35, #39
 
 ## 1. 現在の状態
+
+MSIX の実測結果と配布方式の決定は [docs/msix-verification.md](msix-verification.md) にまとめています。
+要点だけ再掲します。
 
 | 項目 | 状態 |
 | --- | --- |
@@ -12,11 +15,15 @@
 | リリース CI（タグ → ZIP → Release） | ✅ `.github/workflows/release.yml` |
 | MSIX パッケージ生成 | ✅ `scripts/pack-msix.ps1` |
 | MSIX への署名（自己署名） | ✅ `scripts/make-test-msix.ps1 -CreateDevCertificate` |
-| MSIX のインストール | ❌ **未実施**（信頼登録に管理者権限が必要） |
-| MSIX 内からの音声ルーティング実測 | ❌ **未実施**（インストール待ち） |
-| Windows App Certification Kit | ❌ 未実施 |
+| MSIX の登録・起動（開発者モード） | ✅ 実測済み（ルーズ登録。署名検証は伴わない） |
+| MSIX 内からの音声ルーティング実測 | ✅ **成功**（パッケージ内から設定でき、パッケージ外の設定ストアに残り、実際のセッションに反映された） |
+| MSIX の更新・アンインストール | ✅ 実測済み（設定は保持され、実行中プロセスも終了した） |
+| トレイ常駐・単一インスタンス | ✅ 実測済み |
+| ログオン時の自動起動 | ❌ **MSIX では現状の実装が効かない**（`HKCU\Run` が仮想化される。`StartupTask` への変更が必要） |
+| 署名済み MSIX のインストール | ❌ 未実施（証明書の信頼に管理者権限が必要） |
+| Windows App Certification Kit | ❌ 未実施（`appcert.exe` が管理者権限を要求） |
 | ストア掲載素材 | 🟡 下書きあり（本ドキュメント） |
-| プライバシーポリシー | 🟡 下書きあり（本ドキュメント） |
+| プライバシーポリシー | 🟡 下書きあり（本ドキュメント。10.5.1 により Desktop Bridge 製品は必須） |
 
 ## 2. インストール検証の手順（所有者が実行）
 
@@ -65,28 +72,43 @@ Get-ChildItem Cert:\LocalMachine\TrustedPeople |
 ./scripts/make-test-msix.ps1 -RemoveDevCertificate -CertificateThumbprint <thumbprint>
 ```
 
-### 検証したい観点
+### 開発者モードでの登録（管理者不要・署名不要）
 
-- MSIX 内から `Windows.Media.Internal.AudioPolicyConfig` を呼べるか
-- パッケージの識別子で設定が保存され、パッケージ外の Windows 設定画面から見えるか
-- **仮説**: 本アプリは `HKCU` に直接書かないため、レジストリ仮想化の影響を受けない。
-  → 実測で確認するまで「仮説」のまま扱う
+署名と信頼登録を省きたい場合は、ルーズ登録で**パッケージ ID を持つ実行**を再現できます
+（本ドキュメントの実測はこの方法）。署名検証は行われないため、配布経路の検証にはなりません。
 
-## 3. 配布方式の比較（決定材料）
+```powershell
+$makeappx = (Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter 'makeappx.exe' |
+  Where-Object FullName -match '\\x64\\' | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+& $makeappx unpack /p .\artifacts\GameAudioManager.msix /d .\artifacts\app-package /o
+Add-AppxPackage -Register .\artifacts\app-package\AppxManifest.xml
+$pkg = Get-AppxPackage Tonbiattack.GameAudioManager
+Start-Process explorer.exe -ArgumentList "shell:AppsFolder\$($pkg.PackageFamilyName)!GameAudioManager"
+Get-AppxPackage Tonbiattack.GameAudioManager | Remove-AppxPackage
+```
 
-| 観点 | MSIX（Store） | EXE（自己完結・GitHub Releases） |
+### 検証したい観点（実測済みの結果）
+
+- MSIX 内から `Windows.Media.Internal.AudioPolicyConfig` を呼べるか → ✅ 呼べる
+- パッケージの設定がパッケージ外から見えるか → ✅ 見える（`HKCU\...\DefaultEndpoint` に書かれる）
+- 実際の音声セッションに反映されるか → ✅ 反映される（対象アプリのセッションを作り直すと指定デバイスに載る）
+- 自動起動・設定の保存先・既存 EXE 版との共存 → ⚠️ / ❌ 要改修（[docs/msix-verification.md](msix-verification.md)）
+
+## 3. 配布方式の決定
+
+**GitHub Releases の自己完結 EXE を維持し、Store へ出す場合は MSIX 方式を採る（EXE/MSI 方式は採らない）。**
+
+| 観点 | MSIX（Store） | EXE / MSI（Store の Win32 提出） |
 | --- | --- | --- |
-| 署名費用 | Store 経由なら実質不要 | コード署名証明書が必要（未購入の方針） |
-| SmartScreen | 出ない | 出る（未署名のため） |
-| 自動更新 | Store が担当 | 手動（新 ZIP を展開して入れ替え） |
-| 審査 | あり | なし |
-| 非公開 API 利用 | ポリシー上の可否が不明 | 制約なし |
-| 配布の手軽さ | 1 クリック | ZIP 展開 |
+| 署名費用 | **ストアが再署名（$0）** | OV 証明書 約 $150–300/年など（提出者署名が必須） |
+| 配布 | ストアの CDN | 自前の HTTPS 固定 URL |
+| インストール | パッケージ導入 | サイレント導入が必須 |
+| 自動更新 | ストアが担当 | アプリ側で実装 |
+| 非公開 API の審査リスク | あり（個別判断） | あり（同じ） |
+| 本アプリの実測 | コア機能が動作することを確認済み | 未検証 |
 
-現時点の推奨は**二本立て**:
-
-1. GitHub Releases の自己完結 EXE を主配布（審査不要・即配布）
-2. MSIX は検証が通った時点で Store 申請用に生成できる状態にしておく
+詳細・出典・未確認点は [docs/msix-verification.md](msix-verification.md) を参照。
+**MSIX を選んでも審査通過は保証されません。** 非公開 API の扱いは提出時に個別判断となります。
 
 ## 4. ストア掲載素材（下書き）
 
@@ -188,11 +210,15 @@ Game Audio Manager は、利用者の個人情報を収集しません。
 
 ## 5. 未完了（公開前に必要）
 
-- [ ] MSIX のインストール検証（上記手順、管理者権限が必要）
-- [ ] MSIX 内からのルーティング実測と結果記録
-- [ ] Windows App Certification Kit の実行と結果記録
-- [ ] 非公開 API 利用のストアポリシー確認（**未確認**。公開の可否を保証できない）
+- [x] MSIX の登録・起動・音声ルーティングの実測と記録（[docs/msix-verification.md](msix-verification.md)）
+- [x] 配布方式の決定（MSIX を採用、EXE/MSI 方式は不採用）
+- [ ] 署名済み MSIX のインストール検証（**管理者権限が必要**。手順は上記）
+- [ ] Windows App Certification Kit の実行と結果記録（**管理者権限が必要**）
+- [ ] MSIX 対応の改修: `StartupTask`（自動起動）、設定の保存先、単一インスタンスのミューテックス
+- [ ] 非公開 API 利用のストアポリシー確認（10.2.8 の「unsupported ways」に当たるかは**未確定**。
+      提出時の個別判断。EarTrumpet の前例あり）
 - [ ] ストア用スクリーンショットの解像度要件を満たす撮り直し
 - [ ] Publisher 名（Partner Center の正式値）をマニフェストへ反映
+- [ ] プライバシーポリシーの公開（Desktop Bridge 製品は必須）
 - [ ] 実際の申請（所有者の承認後）
 
