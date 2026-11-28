@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Publish self-contained executable
+    name: Publish the executable and the Store package
     runs-on: windows-latest
     steps:
       - name: Check out repository
@@ -27,27 +27,66 @@ jobs:
           dotnet test tests/GameAudioManager.Core.Tests/GameAudioManager.Core.Tests.csproj `
             --configuration Release --logger "console;verbosity=normal"
 
-      - name: Resolve version from tag
+      - name: Resolve version
         id: version
         shell: pwsh
         run: |
-          $tag = '${{ github.ref_name }}'
-          $version = $tag.TrimStart('v')
-          if ([string]::IsNullOrWhiteSpace($version)) { $version = '0.0.0' }
-          "value=$version" >> $env:GITHUB_OUTPUT
-          Write-Host "Version: $version"
+          # Tags look like v2.0.0. A manual run has no tag, so fall back to a
+          # development version that still satisfies the four-part MSIX rule.
+          if ('${{ github.ref }}' -like 'refs/tags/*') {
+            $version = '${{ github.ref_name }}'.TrimStart('v')
+          }
+          else {
+            $version = '0.1.0'
+          }
+
+          if ([string]::IsNullOrWhiteSpace($version)) { $version = '0.1.0' }
+
+          $parts = @($version.Split('.'))
+          while ($parts.Count -lt 4) { $parts += '0' }
+          $packageVersion = ($parts[0..3] -join '.')
+
+          "app=$version" >> $env:GITHUB_OUTPUT
+          "package=$packageVersion" >> $env:GITHUB_OUTPUT
+          Write-Host "App version: $version"
+          Write-Host "Package version: $packageVersion"
 
       - name: Publish win-x64
         shell: pwsh
-        run: ./scripts/publish.ps1 -Version ${{ steps.version.outputs.value }} -Runtime win-x64
+        run: ./scripts/publish.ps1 -Version ${{ steps.version.outputs.app }} -Runtime win-x64
 
       - name: Zip the artifact
+        id: zip
         shell: pwsh
         run: |
-          $name = "game-audio-manager-${{ steps.version.outputs.value }}-win-x64.zip"
+          $name = "game-audio-manager-${{ steps.version.outputs.app }}-win-x64.zip"
           Compress-Archive -Path artifacts/win-x64/* -DestinationPath $name
           "artifact=$name" >> $env:GITHUB_OUTPUT
-        id: zip
+
+      - name: Pack the MSIX for the Store
+        id: msix
+        shell: pwsh
+        run: |
+          ./scripts/pack-msix.ps1 -Version ${{ steps.version.outputs.package }}
+          if (-not (Test-Path -LiteralPath 'artifacts/GameAudioManager.msix')) {
+            throw 'The MSIX package was not produced.'
+          }
+
+          $name = "game-audio-manager-${{ steps.version.outputs.package }}-win-x64.msix"
+          Copy-Item -LiteralPath 'artifacts/GameAudioManager.msix' -Destination $name
+          $size = [math]::Round((Get-Item -LiteralPath $name).Length / 1MB, 1)
+          Write-Host "MSIX: $name ($size MB, version ${{ steps.version.outputs.package }})"
+          "artifact=$name" >> $env:GITHUB_OUTPUT
+
+      # The Store package is unsigned: the Store re-signs it during ingestion and
+      # an unsigned package cannot be side-loaded without administrator rights, so
+      # it is published as a workflow artifact rather than a release download.
+      - name: Upload the Store package
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-msix
+          path: ${{ steps.msix.outputs.artifact }}
+          if-no-files-found: error
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
@@ -63,11 +102,14 @@ jobs:
 
             .NET ランタイムのインストールは不要です（自己完結）。
 
+            Microsoft Store 版（MSIX）も同じ機能を提供します。ストアからのインストールをお待ちください。
+
             ## 注意
 
             - コード署名を行っていないため、初回起動時に SmartScreen の警告が出る場合があります。
               「詳細情報」→「実行」で起動できます
             - 設定は `%LOCALAPPDATA%\GameAudioManager\settings.json` に保存されます
+            - ストア版と同時に起動しないでください（同じアプリの出力先を奪い合います）
 
             ## 移行
 
