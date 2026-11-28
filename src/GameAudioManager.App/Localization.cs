@@ -99,6 +99,9 @@ public sealed class Localization : INotifyPropertyChanged
             ["StatusAutoStartOn"] = ("ログオン時に自動起動するよう登録しました。", "Registered to start with Windows."),
             ["StatusAutoStartOff"] = ("ログオン時の自動起動を解除しました。", "Removed the start-with-Windows entry."),
             ["StatusAutoStartFailed"] = ("自動起動の設定に失敗しました: {0}", "Could not change start with Windows: {0}"),
+            ["StatusAutoStartBlockedByUser"] = (
+                "Windows 側で無効にされています。「設定 > アプリ > スタートアップ」から有効にしてください。",
+                "Turned off in Windows. Enable it in Settings > Apps > Startup."),
             ["StatusSaveFailed"] = ("設定の保存に失敗しました: {0}", "Could not save settings: {0}"),
             ["StatusWatchCycleFailed"] = ("自動適用でエラー: {0}", "Auto-apply error: {0}"),
             ["StatusNoSession"] = (

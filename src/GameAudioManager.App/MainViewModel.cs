@@ -28,6 +28,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly IAudioSessionService _sessions;
     private readonly IAppRoutingService _routing;
     private readonly SettingsStore _store;
+    private readonly IStartupRegistration _startupRegistration;
     private readonly WatcherService _watcher;
     private readonly Dispatcher _dispatcher;
 
@@ -42,12 +43,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         IAudioDeviceService devices,
         IAudioSessionService sessions,
         IAppRoutingService routing,
-        SettingsStore store)
+        SettingsStore store,
+        IStartupRegistration startupRegistration)
     {
         _devices = devices;
         _sessions = sessions;
         _routing = routing;
         _store = store;
+        _startupRegistration = startupRegistration ?? throw new ArgumentNullException(nameof(startupRegistration));
         _dispatcher = Dispatcher.CurrentDispatcher;
 
         Settings = _store.Load();
@@ -164,9 +167,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             }
 
             Settings.AutoStartWithWindows = value;
-            ApplyAutoStart(value);
             OnPropertyChanged(nameof(AutoStartWithWindows));
             SaveSettings();
+            _ = ApplyAutoStartAsync(value);
         }
     }
 
@@ -472,33 +475,72 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _watcher.Dispose();
     }
 
-    private void ApplyAutoStart(bool enabled)
+    /// <summary>
+    /// Syncs the stored autostart flag with what the OS actually has, once at startup.
+    /// </summary>
+    /// <remarks>
+    /// The user can turn the entry off from Task Manager without opening the app, so the
+    /// checkbox must not keep claiming a state Windows no longer holds. Failures are
+    /// reported but never block startup.
+    /// </remarks>
+    public void InitializeAutoStart() => _ = ReconcileAutoStartAsync();
+
+    private async Task ReconcileAutoStartAsync()
     {
         try
         {
-            var exe = Environment.ProcessPath;
-            if (string.IsNullOrEmpty(exe))
+            var status = await _startupRegistration.GetStatusAsync();
+            if (status.State == StartupRegistrationState.Unavailable)
             {
-                StatusMessage = Localization.Instance.Format("StatusAutoStartFailed", "exe");
+                // No usable mechanism on this channel; keep the stored preference rather
+                // than silently clearing it.
                 return;
             }
 
-            if (enabled)
+            // Correct the checkbox silently. The watcher owns the status line at startup,
+            // and a "blocked" notice written here would be overwritten by it; the notice is
+            // shown when the user actually tries to enable the entry.
+            if (status.IsEnabled != Settings.AutoStartWithWindows)
             {
-                AutoStartRegistration.Enable(exe);
-                StatusMessage = Localization.Instance["StatusAutoStartOn"];
-            }
-            else
-            {
-                AutoStartRegistration.Disable();
-                StatusMessage = Localization.Instance["StatusAutoStartOff"];
+                Settings.AutoStartWithWindows = status.IsEnabled;
+                OnPropertyChanged(nameof(AutoStartWithWindows));
+                SaveSettings();
             }
         }
         catch (Exception ex)
         {
             StatusMessage = Localization.Instance.Format("StatusAutoStartFailed", ex.Message);
+        }
+    }
+
+    private async Task ApplyAutoStartAsync(bool enabled)
+    {
+        try
+        {
+            var status = await _startupRegistration.SetEnabledAsync(enabled);
+            if (status.IsEnabled == enabled)
+            {
+                StatusMessage = Localization.Instance[enabled ? "StatusAutoStartOn" : "StatusAutoStartOff"];
+                return;
+            }
+
+            // The OS refused the change (or the channel has no mechanism). Show what it
+            // actually applied instead of leaving the checkbox out of sync.
+            Settings.AutoStartWithWindows = status.IsEnabled;
+            OnPropertyChanged(nameof(AutoStartWithWindows));
+            SaveSettings();
+            StatusMessage = status.State switch
+            {
+                StartupRegistrationState.DisabledByUser => Localization.Instance["StatusAutoStartBlockedByUser"],
+                _ => Localization.Instance.Format("StatusAutoStartFailed", status.Detail ?? status.State.ToString()),
+            };
+        }
+        catch (Exception ex)
+        {
             Settings.AutoStartWithWindows = !enabled;
             OnPropertyChanged(nameof(AutoStartWithWindows));
+            SaveSettings();
+            StatusMessage = Localization.Instance.Format("StatusAutoStartFailed", ex.Message);
         }
     }
 

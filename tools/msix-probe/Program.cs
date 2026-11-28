@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using GameAudioManager.Core.Audio;
 using GameAudioManager.Core.Configuration;
+using GameAudioManager.Core.Packaging;
 using GameAudioManager.Core.Routing;
 using GameAudioManager.Core.Startup;
 using Microsoft.Win32;
@@ -334,8 +335,10 @@ internal static class Program
 
     private static void CollectEnvironment(ProbeResult result)
     {
-        result.LocalApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        result.SettingsPath = SettingsStore.GetDefaultPath();
+        var identity = AppIdentity.Detect();
+        result.LocalApplicationData = identity.LocalApplicationData;
+        // Report the path the app itself would use, so a packaged run shows LocalState.
+        result.SettingsPath = identity.SettingsPath;
         result.SettingsFileExists = File.Exists(result.SettingsPath);
     }
 

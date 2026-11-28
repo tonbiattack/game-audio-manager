@@ -45,7 +45,7 @@ Windows 上でアプリ・ゲームごとの音声出力先とミュートを切
 | 自動 | ON のアプリは出力先を自動で維持します |
 | 優先デバイス順 | 右側の一覧で候補と順序を編集できます。上ほど優先されます |
 | 自動適用を停止 / 開始 | 常駐処理を一時停止・再開します |
-| ログオン時に自動起動 | チェックすると `HKCU\...\Run` に登録します（管理者権限不要） |
+| ログオン時に自動起動 | チェックすると `HKCU\...\Run` に登録します（管理者権限不要）。ストア版（MSIX）は Windows のスタートアップ タスクに登録されます |
 | テーマ | システム / ライト / ダークを切り替えます。設定は次回起動時にも保持されます |
 | 言語 | 日本語 / English を切り替えます（既定は OS の UI 言語） |
 | 使い方 | アプリ内の操作ガイドを開きます（`F1` でも開けます） |
@@ -178,6 +178,38 @@ dotnet test tests/GameAudioManager.Core.Tests/GameAudioManager.Core.Tests.csproj
 デバイス名は変更・重複しうるため、新版は ID で保存します。
 そのため旧設定のデバイス名をそのまま持ち込むと誤ったデバイスに割り当たる可能性があり、
 **画面から選び直す方式**にしています（取り込み機能は提供していません）。
+
+## GitHub Releases 版から Store 版（MSIX）へ移行する
+
+ストア版は MSIX パッケージとして動くため、保存先と自動起動の方式が GitHub Releases 版と異なります。
+
+| 項目 | GitHub Releases 版（EXE） | Store 版（MSIX） |
+| --- | --- | --- |
+| 設定ファイル | `%LOCALAPPDATA%\GameAudioManager\settings.json` | `%LOCALAPPDATA%\Packages\<パッケージID>\LocalState\GameAudioManager\settings.json` |
+| ログオン時の自動起動 | `HKCU\...\Run` | スタートアップ タスク（タスク マネージャーの「スタートアップ」に表示） |
+| アンインストール | 設定ファイルは残る | **設定ファイルも削除される** |
+
+### 手順
+
+1. **旧版を終了してアンインストールする**（必須）
+
+   ミューテックスは分けてあるので同時に起動できますが、同じアプリの出力先を両方が書き換えるため
+   同時使用は避けてください。
+
+   ```powershell
+   Get-Process GameAudioManager -ErrorAction SilentlyContinue | Stop-Process
+   Remove-Item "$env:LOCALAPPDATA\Programs\GameAudioManager" -Recurse -Force
+   Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Game Audio Manager.lnk" -Force
+   ```
+
+2. **ストア版をインストールして起動**する。
+
+   初回起動時に限り、旧 EXE 版の `settings.json` があれば**自動でコピー**します
+   （元のファイルは残ります）。設定を選び直す必要はありません。
+
+3. 自動起動を使っていた場合は、ウィンドウの「ログオン時に自動起動」を入れ直してください。
+   Windows 側で無効にされている場合は「設定 > アプリ > スタートアップ」から有効にできます。
+
 
 ---
 

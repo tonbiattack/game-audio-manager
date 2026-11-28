@@ -24,14 +24,56 @@ public sealed class SettingsStore
     public string Path => _path;
 
     /// <summary>
-    /// Default location: %LOCALAPPDATA%\GameAudioManager\settings.json.
+    /// Default location for the portable build: %LOCALAPPDATA%\GameAudioManager\settings.json.
     /// Never the installation directory, which may be read-only (and is not writable
     /// at all inside an MSIX package).
     /// </summary>
+    /// <remarks>
+    /// The packaged build keeps its settings in the package's LocalState instead; use
+    /// <see cref="Packaging.AppIdentity.SettingsPath"/> when the channel matters.
+    /// </remarks>
     public static string GetDefaultPath()
     {
         var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return System.IO.Path.Combine(root, "GameAudioManager", "settings.json");
+        return System.IO.Path.Combine(root, Packaging.AppIdentity.SettingsFolderName, "settings.json");
+    }
+
+    /// <summary>True when a settings file exists at <see cref="Path"/>.</summary>
+    public bool Exists => File.Exists(_path);
+
+    /// <summary>
+    /// Loads the file without side effects.
+    /// </summary>
+    /// <returns>False when the file is missing or cannot be parsed.</returns>
+    /// <remarks>
+    /// Unlike <see cref="Load"/> this does not preserve a corrupt copy and does not fall
+    /// back to defaults, so callers that must not invent settings (the importer) can tell
+    /// "no settings" from "unreadable settings".
+    /// </remarks>
+    public bool TryLoad(out AppSettings settings)
+    {
+        settings = new AppSettings();
+        if (!File.Exists(_path))
+        {
+            return false;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(_path);
+            var parsed = JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions);
+            if (parsed is null)
+            {
+                return false;
+            }
+
+            settings = parsed;
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     public AppSettings Load()
