@@ -234,7 +234,7 @@ Export-Certificate -Cert Cert:\CurrentUser\My\<thumbprint> -FilePath $env:TEMP\g
 Import-Certificate -FilePath $env:TEMP\gam-dev.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
 # 管理者ではなく通常の PowerShell で
 Add-AppxPackage -Path .\artifacts\GameAudioManager.msix
-Get-AppxPackage Tonbiattack.GameAudioManager | Remove-AppxPackage
+Get-AppxPackage tonbiattack.GameAudioManager | Remove-AppxPackage
 Get-ChildItem Cert:\LocalMachine\TrustedPeople | Where-Object Subject -eq 'CN=GameAudioManager-Dev' | Remove-Item
 
 # 2. WACK（インストール済みの MSIX に対して実行）

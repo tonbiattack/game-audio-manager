@@ -52,8 +52,8 @@ Add-AppxPackage -Path .\artifacts\GameAudioManager.msix
 ```powershell
 # 4. 検証（この結果を #39 に記録する）
 #    a) 起動する
-Get-AppxPackage Tonbiattack.GameAudioManager | Select-Object PackageFullName
-Start-Process shell:AppsFolder\Tonbiattack.GameAudioManager_<publisherId>!GameAudioManager
+Get-AppxPackage tonbiattack.GameAudioManager | Select-Object PackageFullName
+Start-Process shell:AppsFolder\tonbiattack.GameAudioManager_e28ksxe3fc9w4!GameAudioManager
 
 #    b) アプリから出力先を変更し、レジストリに書かれたか確認
 Get-ChildItem 'HKCU:\Software\Microsoft\Multimedia\Audio\DefaultEndpoint' |
@@ -68,7 +68,7 @@ Get-ChildItem 'HKCU:\Software\Microsoft\Multimedia\Audio\DefaultEndpoint' |
 
 ```powershell
 # 5. 後片付け
-Get-AppxPackage Tonbiattack.GameAudioManager | Remove-AppxPackage
+Get-AppxPackage tonbiattack.GameAudioManager | Remove-AppxPackage
 Get-ChildItem Cert:\LocalMachine\TrustedPeople |
   Where-Object { $_.Subject -eq 'CN=GameAudioManager-Dev' } | Remove-Item   # 管理者
 ./scripts/make-test-msix.ps1 -RemoveDevCertificate -CertificateThumbprint <thumbprint>
@@ -84,9 +84,9 @@ $makeappx = (Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse
   Where-Object FullName -match '\\x64\\' | Sort-Object FullName -Descending | Select-Object -First 1).FullName
 & $makeappx unpack /p .\artifacts\GameAudioManager.msix /d .\artifacts\app-package /o
 Add-AppxPackage -Register .\artifacts\app-package\AppxManifest.xml
-$pkg = Get-AppxPackage Tonbiattack.GameAudioManager
+$pkg = Get-AppxPackage tonbiattack.GameAudioManager
 Start-Process explorer.exe -ArgumentList "shell:AppsFolder\$($pkg.PackageFamilyName)!GameAudioManager"
-Get-AppxPackage Tonbiattack.GameAudioManager | Remove-AppxPackage
+Get-AppxPackage tonbiattack.GameAudioManager | Remove-AppxPackage
 ```
 
 ### 検証したい観点（実測済みの結果）
