@@ -5,7 +5,7 @@ namespace GameAudioManager.Core.Tests;
 
 public sealed class AppIdentityTests
 {
-    private const string PackageFamilyName = "Tonbiattack.GameAudioManager_e28ksxe3fc9w4";
+    private const string PackageFamilyName = "tonbiattack.GameAudioManager_e28ksxe3fc9w4";
     private const string LocalAppData = @"C:\Users\test\AppData\Local";
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class AppIdentityTests
         Assert.Contains(PackageFamilyName, packaged.SingleInstanceName, StringComparison.Ordinal);
 
         // Two packaged builds must not collide either, so the name has to carry the identity.
-        var otherPackage = new AppIdentity("Tonbiattack.GameAudioManager_otheros4h2abc", LocalAppData);
+        var otherPackage = new AppIdentity("tonbiattack.GameAudioManager_otheros4h2abc", LocalAppData);
         Assert.NotEqual(packaged.SingleInstanceName, otherPackage.SingleInstanceName);
     }
 

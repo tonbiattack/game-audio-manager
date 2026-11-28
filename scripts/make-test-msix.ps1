@@ -178,7 +178,7 @@ Write-Host '  # 3. Install (no admin needed once trusted)'
 Write-Host "  Add-AppxPackage -Path `"$msixPath`""
 Write-Host ''
 Write-Host '  # 4. Verify routing from inside the package, then uninstall'
-Write-Host '  Get-AppxPackage Tonbiattack.GameAudioManager | Remove-AppxPackage'
+Write-Host '  Get-AppxPackage tonbiattack.GameAudioManager | Remove-AppxPackage'
 Write-Host ''
 Write-Host '  # 5. Remove the trust entry when finished (ADMIN)'
 Write-Host '  Get-ChildItem Cert:\LocalMachine\TrustedPeople | Where-Object { $_.Subject -eq "CN=GameAudioManager-Dev" } | Remove-Item'
