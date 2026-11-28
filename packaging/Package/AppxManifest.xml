@@ -2,12 +2,13 @@
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  IgnorableNamespaces="uap uap5 rescap">
 
   <Identity
-    Name="Tonbiattack.GameAudioManager"
-    Publisher="CN=00000000-0000-0000-0000-000000000000"
+    Name="tonbiattack.GameAudioManager"
+    Publisher="CN=2F14A66E-02DF-43E2-93E0-5C5900B38D2E"
     Version="0.2.0.0"
     ProcessorArchitecture="x64" />
 
@@ -37,6 +38,23 @@
         Square44x44Logo="Assets\Square44x44Logo.png">
         <uap:DefaultTile Wide310x150Logo="Assets\Square150x150Logo.png" />
       </uap:VisualElements>
+
+      <Extensions>
+        <!--
+          Logon autostart for the packaged build. Writing HKCU\...\Run from inside a
+          package is virtualized and never read at logon, so the packaged build uses a
+          startup task instead. It is declared disabled: the in-app toggle asks Windows
+          to enable it, and Windows records the answer in Task Manager's Startup tab.
+          Application extensions must stay inside <Application> to satisfy the schema.
+        -->
+        <uap5:Extension Category="windows.startupTask"
+                         Executable="GameAudioManager.exe"
+                         EntryPoint="Windows.FullTrustApplication">
+          <uap5:StartupTask TaskId="GameAudioManagerStartup"
+                            Enabled="false"
+                            DisplayName="Game Audio Manager" />
+        </uap5:Extension>
+      </Extensions>
     </Application>
   </Applications>
 
@@ -45,9 +63,9 @@
   </Capabilities>
 
   <!--
-    NOTE: `unvirtualizedResources` is intentionally NOT requested here.
-    The app does not write to HKCU directly (routing goes through the audio policy
-    API), so registry virtualization is not expected to apply. Whether the audio
-    policy API works from inside the package is NOT yet verified — see issue #39.
+    NOTE: `unvirtualizedResources` is intentionally NOT requested here. Routing goes
+    through the audio policy API rather than HKCU, and the packaged build keeps its
+    settings in the package's LocalState, so registry/file virtualization does not need
+    to be bypassed. See docs/msix-verification.md for what was measured.
   -->
 </Package>

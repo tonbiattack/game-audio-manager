@@ -18,8 +18,10 @@ MSIX の実測結果と配布方式の決定は [docs/msix-verification.md](msix
 | MSIX の登録・起動（開発者モード） | ✅ 実測済み（ルーズ登録。署名検証は伴わない） |
 | MSIX 内からの音声ルーティング実測 | ✅ **成功**（パッケージ内から設定でき、パッケージ外の設定ストアに残り、実際のセッションに反映された） |
 | MSIX の更新・アンインストール | ✅ 実測済み（設定は保持され、実行中プロセスも終了した） |
-| トレイ常駐・単一インスタンス | ✅ 実測済み |
-| ログオン時の自動起動 | ❌ **MSIX では現状の実装が効かない**（`HKCU\Run` が仮想化される。`StartupTask` への変更が必要） |
+| 設定の保存先 | ✅ パッケージの `LocalState` に統一。EXE 版から初回に取り込み（ハッシュ一致を実測） |
+| EXE 版との共存 | ✅ ミューテックスを分離し、同時起動できることを実測 |
+| トレイ常駐・単一インスタンス | ✅ 実測済み（チャネルごとにミューテックスを分離） |
+| ログオン時の自動起動 | ✅ `uap5:StartupTask` へ移行して実測（有効化で `State=2`、再起動後も維持。Windows 側で無効化された場合はメッセージ表示） |
 | 署名済み MSIX のインストール | ❌ 未実施（証明書の信頼に管理者権限が必要） |
 | Windows App Certification Kit | ❌ 未実施（`appcert.exe` が管理者権限を要求） |
 | ストア掲載素材 | 🟡 下書きあり（本ドキュメント） |
@@ -92,7 +94,7 @@ Get-AppxPackage Tonbiattack.GameAudioManager | Remove-AppxPackage
 - MSIX 内から `Windows.Media.Internal.AudioPolicyConfig` を呼べるか → ✅ 呼べる
 - パッケージの設定がパッケージ外から見えるか → ✅ 見える（`HKCU\...\DefaultEndpoint` に書かれる）
 - 実際の音声セッションに反映されるか → ✅ 反映される（対象アプリのセッションを作り直すと指定デバイスに載る）
-- 自動起動・設定の保存先・既存 EXE 版との共存 → ⚠️ / ❌ 要改修（[docs/msix-verification.md](msix-verification.md)）
+- 自動起動・設定の保存先・既存 EXE 版との共存 → ✅ #58 で対応・再実測（[docs/msix-verification.md](msix-verification.md)）
 
 ## 3. 配布方式の決定
 
@@ -214,7 +216,7 @@ Game Audio Manager は、利用者の個人情報を収集しません。
 - [x] 配布方式の決定（MSIX を採用、EXE/MSI 方式は不採用）
 - [ ] 署名済み MSIX のインストール検証（**管理者権限が必要**。手順は上記）
 - [ ] Windows App Certification Kit の実行と結果記録（**管理者権限が必要**）
-- [ ] MSIX 対応の改修: `StartupTask`（自動起動）、設定の保存先、単一インスタンスのミューテックス
+- [x] MSIX 対応の改修: `StartupTask`（自動起動）、設定の保存先、単一インスタンスのミューテックス
 - [ ] 非公開 API 利用のストアポリシー確認（10.2.8 の「unsupported ways」に当たるかは**未確定**。
       提出時の個別判断。EarTrumpet の前例あり）
 - [ ] ストア用スクリーンショットの解像度要件を満たす撮り直し

@@ -5,8 +5,10 @@ using ContextMenuStrip = System.Windows.Forms.ContextMenuStrip;
 using ToolStripSeparator = System.Windows.Forms.ToolStripSeparator;
 using GameAudioManager.Core.Audio;
 using GameAudioManager.Core.Configuration;
+using GameAudioManager.Core.Packaging;
 using GameAudioManager.Core.Routing;
 using GameAudioManager.Core.Startup;
+using GameAudioManager.App.Startup;
 
 namespace GameAudioManager.App;
 
@@ -35,17 +37,21 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
 
-        _singleInstance = SingleInstanceGuard.Acquire();
+        // Which channel this process belongs to decides where settings live and which
+        // mutex it uses, so resolve it before anything touches either.
+        var identity = AppIdentity.Detect();
+
+        _singleInstance = SingleInstanceGuard.Acquire(identity.SingleInstanceName);
         if (!_singleInstance.IsFirstInstance)
         {
             // The app lives in the tray, so exiting silently looks like a failed launch.
             // Ask the running instance to show its window, then exit.
-            SingleInstanceGuard.SignalRunningInstance();
+            SingleInstanceGuard.SignalRunningInstance(identity.SingleInstanceName);
             Shutdown();
             return;
         }
 
-        _singleInstance.ListenForActivation(() => Dispatcher.BeginInvoke(ShowMainWindow));
+        _singleInstance.ListenForActivation(() => Dispatcher.BeginInvoke(ShowMainWindow), identity.SingleInstanceName);
 
         var devices = new CoreAudioDeviceService();
         var sessions = new CoreAudioSessionService();
@@ -53,7 +59,14 @@ public partial class App : System.Windows.Application
         // Per-app routing goes through Windows.Media.Internal.AudioPolicyConfig, the
         // same path EarTrumpet uses. No external helper executable is needed.
         var routing = new AudioPolicyConfigRoutingService(devices);
-        var store = new SettingsStore(SettingsStore.GetDefaultPath());
+        var store = new SettingsStore(identity.SettingsPath);
+
+        // Moving from the GitHub Releases build to the Store build changes the settings
+        // folder. Import once, without touching the portable file, so rules survive.
+        if (identity.UsesSeparateSettingsPath)
+        {
+            SettingsMigration.ImportIfMissing(store, identity.PortableSettingsPath);
+        }
 
         // Apply the saved language and theme before the first frame so there is no
         // flash of the wrong palette or the wrong language.
@@ -64,12 +77,21 @@ public partial class App : System.Windows.Application
         ThemeManager.Apply(initialSettings.Theme);
 
         _lastTheme = initialSettings.Theme;
-        var viewModel = new MainViewModel(devices, sessions, routing, store);
+        var viewModel = new MainViewModel(
+            devices,
+            sessions,
+            routing,
+            store,
+            CreateStartupRegistration(identity));
         _window = new MainWindow(viewModel);
         MainWindow = _window;
 
         CreateTrayIcon(viewModel);
         SubscribeSystemEvents(viewModel);
+
+        // The OS is the source of truth for logon autostart; sync the stored flag to it
+        // once the window exists so the checkbox cannot claim a state that does not hold.
+        viewModel.InitializeAutoStart();
 
         if (!e.Args.Contains("--minimized", StringComparer.OrdinalIgnoreCase))
         {
@@ -115,6 +137,21 @@ public partial class App : System.Windows.Application
             }
         };
         Microsoft.Win32.SystemEvents.UserPreferenceChanged += _userPreferenceHandler;
+    }
+
+    /// <summary>
+    /// Picks the logon-autostart mechanism for this channel.
+    /// </summary>
+    /// <remarks>
+    /// MSIX virtualizes <c>HKCU</c> writes, so a packaged app that writes the Run key
+    /// looks successful and never starts at logon. The packaged build therefore uses the
+    /// task declared in the manifest; the portable build keeps the Run key.
+    /// </remarks>
+    private static IStartupRegistration CreateStartupRegistration(AppIdentity identity)
+    {
+        return identity.IsPackaged
+            ? new StartupTaskRegistration(StartupTaskRegistration.DefaultTaskId)
+            : new RunKeyStartupRegistration();
     }
 
     /// <summary>Brings the window back from the tray.</summary>

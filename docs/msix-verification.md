@@ -23,8 +23,9 @@
 | OS の設定ストアはパッケージ外から見えるか | ✅ 見える（`HKCU\Software\Microsoft\Multimedia\Audio\DefaultEndpoint`） |
 | 実際の音声セッションに反映されるか | ✅ 反映（新規セッションが指定デバイスに載った） |
 | アプリ本体は MSIX で起動・常駐できるか | ✅ 起動・トレイ常駐・単一インスタンスとも動作 |
-| ログオン時の自動起動 | ❌ **MSIX では効かない**（HKCU Run が仮想化される） |
-| 設定ファイルの扱い | ⚠️ 既存ユーザーは実フォルダ、新規ユーザーはパッケージ内キャッシュ（アンインストールで消える） |
+| ログオン時の自動起動 | ✅ `StartupTask` へ移行して実測済み（#58。Run キーは仮想化されて効かない） |
+| 設定ファイルの扱い | ✅ LocalState に統一し、EXE 版から初回取り込み（#58） |
+| EXE 版との共存 | ✅ ミューテックスを分離し、同時起動できることを実測（#58） |
 | 署名済み MSIX のインストール | ❌ 未検証（証明書の信頼に管理者権限が必要） |
 | WACK | ❌ 未実行（`appcert.exe` が管理者権限を要求） |
 | ストアポリシー（非公開 API） | ⚠️ 未確定（条文は「unsupported ways」を禁止。前例あり／下記） |
@@ -102,7 +103,7 @@ Start-Process explorer.exe -ArgumentList "shell:AppsFolder\Tonbiattack.GameAudio
 | ウィンドウ | ✅ 表示（1200x720、日本語 UI、ダークテーマ） |
 | デバイス列挙 | ✅ 20 端点（アクティブ/未接続/無効を含む）を一覧表示 |
 | 音声セッション列挙 | ✅ アプリ一覧と状態が出る（自動適用も動作中と表示） |
-| 設定の読み込み | ✅ `%LOCALAPPDATA%\GameAudioManager\settings.json` を読んだ |
+| 設定の読み込み | ✅ パッケージの LocalState に作成し、EXE 版の設定を初回に取り込んだ（#58） |
 | トレイ常駐 | ✅ `CloseMainWindow()` 後もプロセスは生き残り、ウィンドウだけ消えた |
 | 単一インスタンス | ✅ AUMID で二重起動してもプロセスは 1 つのまま |
 
@@ -118,58 +119,92 @@ Start-Process explorer.exe -ArgumentList "shell:AppsFolder\Tonbiattack.GameAudio
 | 更新後の設定 | ✅ `settings.json` のハッシュが更新前後で同一 |
 | 更新後の起動 | ✅ 起動・ウィンドウ表示とも成功 |
 | アンインストール | ✅ `Remove-AppxPackage` で実行中プロセスも終了し、パッケージが消えた |
-| 実フォルダの設定 | ✅ `%LOCALAPPDATA%\GameAudioManager\settings.json` は残った（下記の理由） |
+| 設定の引き継ぎ | ✅ パッケージの LocalState に EXE 版と同じ内容を作成（ハッシュ一致） |
 | パッケージのデータ | ✅ `%LOCALAPPDATA%\Packages\<PFN>` は削除された |
 
-### 4. 自動起動は MSIX では効かない（要修正）
+### 4. 自動起動を StartupTask へ移行（#58 で修正・再実測）
 
-`AutoStartRegistration.Enable()`（`HKCU\...\Run` への書き込み）を**パッケージ内から**実行した。
+**修正前（実測）**: `AutoStartRegistration.Enable()`（`HKCU\...\Run` への書き込み）をパッケージ内から
+実行すると、パッケージ内では `IsEnabled()=True` と読めたのに、**パッケージ外からは値が存在しなかった**。
+MSIX のレジストリ仮想化で `HKCU` の書き込みがパッケージ専用の場所へ移り、ログオンの `Run` としては
+読まれないため、チェックしても黙って効かない状態だった。
 
-| 視点 | 結果 |
+**対応**:
+
+- マニフェストに `uap5:Extension Category="windows.startupTask"` を宣言（`Enabled="false"`）
+- アプリは `Windows.ApplicationModel.StartupTask`（`RequestEnableAsync` / `Disable`）で状態を変える
+- EXE 版は従来どおり `HKCU\...\Run`（`RunKeyStartupRegistration`）
+
+マニフェストの注意点: この拡張は **`<Application>` の子**に置く必要がある。`<Package>` 直下の
+`<Extensions>` に入れると `makeappx` が `C00CE014: The app manifest must be valid as per schema` で
+失敗する（実測）。
+
+**再実測（パッケージ内の UI トグルを UI Automation で操作）**:
+
+| 操作 | 結果 |
 | --- | --- |
-| パッケージ内から `IsEnabled()` | `True`（書けたように見える） |
-| パッケージ内から読んだ値 | `"C:\...\artifacts\probe-package\MsixProbe.exe"` |
-| **パッケージ外から読んだ値** | **空（存在しない）** |
+| 初期状態 | チェック Off、`State=0` |
+| オンにする | チェック On、`State=2`、`settings.json` の `autoStartWithWindows=true`、**`HKCU\...\Run` には値が作られない** |
+| アプリを再起動 | チェック On のまま（OS の状態から復元） |
+| オフにする | チェック Off、`State=0`、設定も false |
+| Windows 側で無効化（`State=1` を再現）してオンにする | OS が拒否し、チェックは Off のまま。「設定 > アプリ > スタートアップ」を促すメッセージを表示 |
+| EXE 版でオンにする | 従来どおり `HKCU\...\Run` に `"<パス>"` が入り、オフで消える |
 
-MSIX のレジストリ仮想化により、`HKCU` への書き込みはパッケージ専用の場所へ移され、
-ログオン時の `Run` キーとしては**読まれない**。つまり現状の実装のまま MSIX にすると、
-「ログオン時に自動起動」は**チェックしても黙って効かない**。
+状態は `HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData\<PFN>\GameAudioManagerStartup`
+の `State`（0=無効 / 1=ユーザーが無効化 / 2=有効）に保存される。タスク マネージャーの
+「スタートアップ」タブにもこのタスクが並び、ユーザーがアプリを開かずに無効化できる。
 
-対処: MSIX では `uap5:StartupTask` 拡張をマニフェストに追加し、アプリから
-`Windows.ApplicationModel.StartupTask` で有効化する方式に変える必要がある
-（ユーザーは「設定 > アプリ > スタートアップ」で個別に無効化できる）。
+### 5. 設定の保存先（#58 で決定）
 
-### 5. 設定ファイルの保存先が状況で変わる
-
-パッケージ内から `%LOCALAPPDATA%` の 2 か所へ書き込みを試した。
+**実測（修正前）**: パッケージ内から `%LOCALAPPDATA%` の 2 か所へ書き込みを試した。
 
 | 書き込み先 | 実際に書かれた場所 | パッケージ外から見えるか |
 | --- | --- | --- |
 | `%LOCALAPPDATA%\GameAudioManager\`（既に存在するフォルダ） | 実フォルダ（そのまま） | 見える |
 | `%LOCALAPPDATA%\GameAudioManagerMsixProbe\`（存在しないフォルダ） | `%LOCALAPPDATA%\Packages\<PFN>\LocalCache\Local\...` | 見えない |
 
-MSIX のファイル仮想化は「既存の実ファイル/フォルダは素通し、新規作成はパッケージ内へ」という
-挙動になるため、**同じアプリでも、アップグレードしたユーザーと新規インストールしたユーザーで
-設定の保存先が変わる**。
+MSIX のファイル仮想化は「既存の実ファイル/フォルダは素通し、新規作成はパッケージ内へ」なので、
+**アップグレードしたユーザーと新規インストールしたユーザーで保存先が変わってしまう**状態だった。
 
-- GitHub Releases 版から移行したユーザー: 実フォルダの設定をそのまま使う（移行不要）
-- MSIX が初めてのユーザー: 設定はパッケージ内に作られ、**アンインストールで消える**
+**決定と実装**:
 
-MSIX を選ぶ場合は、保存先を明示的に決める必要がある（例: 初回起動時に実フォルダへ移す、
-`ApplicationData.Current.LocalFolder` に寄せて「アンインストールで消える」と明記する、
-非仮想化リソースを使う）。
+| チャネル | 保存先 |
+| --- | --- |
+| GitHub Releases（EXE） | `%LOCALAPPDATA%\GameAudioManager\settings.json`（従来のまま） |
+| Store（MSIX） | `%LOCALAPPDATA%\Packages\<PFN>\LocalState\GameAudioManager\settings.json` |
 
-### 6. 既存の EXE 版と同時に起動できない
+- パッケージの `LocalState` は更新で残り、アンインストールで消える（ストアの期待どおり）
+- 初回起動時、MSIX 側に設定が無く EXE 版の設定がある場合だけ**コピーして引き継ぐ**
+  （上書きしない・EXE 版のファイルは消さない・壊れていたら何もしない）
+- 実測: 初回起動後に LocalState の `settings.json` が作られ、EXE 版と**ハッシュが一致**した
 
-`SingleInstanceGuard` は `Local\GameAudioManager.SingleInstance` というセッション共通の
-ミューテックスを使う。MSIX 版と GitHub Releases 版は同じ名前を使うため、
-**先に起動している側が勝ち、後から起動した側はウィンドウを出すだけの「2 個目のインスタンス」として終了する**。
+### 6. 単一インスタンスをチャネルごとに分離（#58 で修正・再実測）
 
-実測でも、ローカル版（`%LOCALAPPDATA%\Programs\GameAudioManager`）が常駐している状態で
-MSIX 版を AUMID 起動すると、MSIX 版のプロセスは起動後に消え、既存のローカル版のウィンドウが前に出た。
+**修正前**: `Local\GameAudioManager.SingleInstance` を両チャネルで共有していたため、
+先に起動している側が勝ち、後から起動した側はウィンドウを出すだけで終了した。
 
-対処: ストア版へ移行する際は「旧 EXE 版を終了・アンインストールしてから MSIX を入れる」手順を
-案内する。または、ミューテックス名をパッケージ ID ごとに変える。
+**対応**: パッケージ版は `Local\GameAudioManager.SingleInstance.<PFN>` を使う。
+
+**再実測**: EXE 版（`%LOCALAPPDATA%\Programs\...`）と MSIX 版が**同時に 2 プロセスで共存**した。
+同じチャネル内の二重起動は従来どおり 1 プロセスのまま（2 個目は既存のウィンドウを前面に出す）。
+
+注意: 同時起動は同じ設定を奪い合うので推奨しない（同じアプリの出力先を両方が書き換える）。
+移行時は旧 EXE 版を終了・アンインストールする手順を案内する（README に追記）。
+
+### 7. パッケージ ID（Partner Center の予約値と一致）
+
+#58 に記載された予約値で作成し、実測で一致を確認した。
+
+| 項目 | 値 |
+| --- | --- |
+| Identity Name | `tonbiattack.GameAudioManager`（旧 `Tonbiattack…` から変更） |
+| Publisher | `CN=2F14A66E-02DF-43E2-93E0-5C5900B38D2E` |
+| Package Family Name | `tonbiattack.GameAudioManager_e28ksxe3fc9w4`（予約値と一致） |
+| Package Full Name | `tonbiattack.GameAudioManager_0.2.0.0_x64__e28ksxe3fc9w4` |
+
+Publisher を実値にしたため、`scripts/pack-msix.ps1` の既定値も同じ値に変更した。
+自己署名でサイドロードする場合は `make-test-msix.ps1` が証明書のサブジェクトで上書きする。
+
 
 ## 未検証の項目と、その理由
 
@@ -179,7 +214,7 @@ MSIX 版を AUMID 起動すると、MSIX 版のプロセスは起動後に消え
 | 未署名 MSIX の `Add-AppxPackage -AllowUnsigned` | 不可 | 公式ドキュメントに、実行ファイルを含む未署名パッケージは**管理者権限が必要**と明記されている。加えてマニフェストに特別な OID が必要（実測では `0x80073D2C`） |
 | WACK（Windows App Certification Kit） | 未実行 | `appcert.exe` の起動自体が管理者権限を要求（`要求された操作には管理者特権が必要です`） |
 | OS 再起動後の設定反映 | 未検証 | 検証セッションを再起動できない |
-| `StartupTask` による自動起動 | 未実装・未検証 | 現状の実装は `HKCU\Run`。MSIX 用の実装がまだ無い |
+| `StartupTask` のログオン時実際の起動 | 未検証 | 有効化（`State=2`）までは実測したが、サインアウト/再起動できないため実際の自動起動は未確認 |
 
 未署名パッケージの要件（引用）:
 
@@ -292,20 +327,20 @@ Get-ChildItem Cert:\LocalMachine\TrustedPeople | Where-Object Subject -eq 'CN=Ga
    - 非公開 API の扱いについて、Notes for certification で説明できる材料が揃っていること
    - MSIX 対応の改修（自動起動・設定保存先・単一インスタンス）が完了していること
    - 署名済み MSIX の実インストールと WACK を管理者権限で実施し、結果を記録していること
-4. 既存ユーザーの移行手順（旧 EXE 版の終了・アンインストール → MSIX 導入）は
-   **まだ用意していない**。#35 のチェックリストとして残す
+4. 既存ユーザーの移行手順（旧 EXE 版の終了・アンインストール → MSIX 導入）は README に記載した
+   （設定は初回起動で自動取り込み、自動起動は入れ直し）
 
 **この決定は「MSIX なら審査が通る」ことを意味しない。** 非公開 API の利用は 10.2.8 の
 「unsupported ways」に該当すると判断される可能性が残る。最終的な提出可否は所有者の判断とする。
 
 ## MSIX 採用時に必要な改修（提出前の前提）
 
-1. `uap5:StartupTask` 拡張の追加と、`AutoStartRegistration` の MSIX 対応（自動起動）
-2. 設定ファイルの保存先ポリシーの決定と、既存ユーザー向けの移行処理
-3. 単一インスタンスのミューテックス名をパッケージ対応にする、または移行手順の明記
-4. 署名済み MSIX のサイドロード検証（**テスト用のみ**。ストア提出はストアが再署名するため、
+1. ~~`uap5:StartupTask` 拡張の追加と、`AutoStartRegistration` の MSIX 対応（自動起動）~~ → #58 で完了
+2. ~~設定ファイルの保存先ポリシーの決定と、既存ユーザー向けの移行処理~~ → #58 で完了
+3. ~~単一インスタンスのミューテックス名をパッケージ対応にする~~ → #58 で完了（移行手順は README）
+4. ~~`Partner Center` の予約名に合わせた `Identity Name` / `Publisher` の確定~~ → 予約値に更新し、PFN の一致を実測
+5. 署名済み MSIX のサイドロード検証（**テスト用のみ**。ストア提出はストアが再署名するため、
    配布用の OV/EV 証明書は不要）
-5. `Partner Center` の予約名に合わせた `Identity Name` / `Publisher` の確定
 6. WACK の実行と結果の記録（管理者権限）
 7. `runFullTrust` の使用理由と、非公開 API の説明を提出時に記入できるようにする
 8. プライバシーポリシーの用意（10.5.1 により Desktop Bridge 製品は必須）
@@ -317,3 +352,7 @@ Get-ChildItem Cert:\LocalMachine\TrustedPeople | Where-Object Subject -eq 'CN=Ga
 | `tools/msix-probe/` | 測定用の最小アプリ（製品版 `GameAudioManager.Core` を参照） |
 | `packaging/Probe/AppxManifest.xml` | プローブ用の最小マニフェスト（`runFullTrust` のみ） |
 | `scripts/pack-probe-msix.ps1` | 発行 → パッケージ生成 → 登録 / 解除 |
+| `src/GameAudioManager.Core/Packaging/AppIdentity.cs` | パッケージ判定と、設定パス・ミューテックス名の解決 |
+| `src/GameAudioManager.Core/Startup/StartupRegistration.cs` | 自動起動の抽象化と `HKCU\Run` 実装 |
+| `src/GameAudioManager.App/Startup/StartupTaskRegistration.cs` | MSIX の `StartupTask` 実装（WinRT） |
+| `src/GameAudioManager.Core/Configuration/SettingsMigration.cs` | EXE 版からの設定取り込み |
